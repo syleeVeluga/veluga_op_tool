@@ -1,4 +1,4 @@
-import { DataType } from './lib/api'
+import type { DataType } from './lib/api'
 
 export const DATA_TYPES: DataType[] = [
   'conversations',

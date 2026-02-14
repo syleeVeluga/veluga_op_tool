@@ -1,14 +1,15 @@
-import { useEffect, useState, FormEvent } from 'react'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import {
   createAdminUser,
   deleteAdminUser,
   listAdminUsers,
   updateAdminUser,
-  DashboardUser,
-  UserRole
+  type DashboardUser,
+  type UserRole
 } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
-import { AdminUserFormState, AdminUserEditDraft } from '../types/ui'
+import type { AdminUserFormState, AdminUserEditDraft } from '../types/ui'
 
 export function AdminPage() {
   const { authToken, authUser } = useAuth()

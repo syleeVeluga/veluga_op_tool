@@ -1,7 +1,8 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { login } from '../lib/api'
-import { AuthSession } from '../types/ui'
+import type { AuthSession } from '../types/ui'
 
 export function LoginPage() {
   const { setSession } = useAuth()

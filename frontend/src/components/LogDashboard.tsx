@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import {
   type CustomerSearchItem,
   type DataType,
@@ -6,7 +7,7 @@ import {
   postDataQuery,
   resolveCustomersByPartnerId,
   searchCustomers,
-  DataTypeSchema,
+  type DataTypeSchema,
 } from '../lib/api'
 import { DATA_TYPES, DATA_TYPE_GUIDE } from '../constants'
 import { 
@@ -28,7 +29,7 @@ import {
     saveStoredQueryUiSettings,
     sanitizeStoredFilters
 } from '../lib/storage'
-import { FilterInputState, QueryHistoryItem } from '../types/ui'
+import type { FilterInputState, QueryHistoryItem } from '../types/ui'
 
 interface LogDashboardProps {
     mode: 'user' | 'partner'
@@ -158,7 +159,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         setCustomerError(null)
         try {
           const results = await searchCustomers(customerQuery)
-          setCustomerOptions(results)
+          setCustomerOptions(results.customers)
         } catch (error) {
           setCustomerError(error instanceof Error ? error.message : '검색 실패')
         } finally {

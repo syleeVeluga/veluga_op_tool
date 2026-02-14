@@ -1,5 +1,5 @@
-import { DataTypeSchema, QueryFilterValue } from './api'
-import { FilterInputState } from '../types/ui'
+import type { DataTypeSchema, QueryFilterValue } from './api'
+import type { FilterInputState } from '../types/ui'
 
 export function asStringValue(value: FilterInputState[string]): string {
   return typeof value === 'string' ? value : ''

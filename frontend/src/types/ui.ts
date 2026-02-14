@@ -1,4 +1,4 @@
-import { UserRole, DataType } from '../lib/api'
+import type { UserRole, DataType } from '../lib/api'
 
 export interface AuthSession {
   token: string

@@ -1,5 +1,5 @@
-import { DataType, DataTypeSchema } from './api'
-import { AuthSession, FilterInputState, QueryUiSettings, StoredFilterState } from '../types/ui'
+import type { DataType, DataTypeSchema } from './api'
+import type { AuthSession, FilterInputState, QueryUiSettings, StoredFilterState } from '../types/ui'
 import { DATA_TYPES } from '../constants'
 import { asRangeValue, toDatetimeLocalValue } from './utils'
 
