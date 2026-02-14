@@ -5,7 +5,6 @@ import {
   type DataType,
   fetchSchema,
   postDataQuery,
-  resolveCustomersByPartnerId,
   searchCustomers,
   type DataTypeSchema,
 } from '../lib/api'
@@ -31,11 +30,7 @@ import {
 } from '../lib/storage'
 import type { FilterInputState, QueryHistoryItem } from '../types/ui'
 
-interface LogDashboardProps {
-    mode: 'user' | 'partner'
-}
-
-export function LogDashboard({ mode }: LogDashboardProps) {
+export function LogDashboard() {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
   const [dataType, setDataType] = useState<DataType>(initialQuerySettings.dataType)
@@ -47,11 +42,6 @@ export function LogDashboard({ mode }: LogDashboardProps) {
   const [channelOptions, setChannelOptions] = useState<string[]>([])
   const [channelLoading, setChannelLoading] = useState(false)
   const [channelError, setChannelError] = useState<string | null>(null)
-  const [partnerId, setPartnerId] = useState('')
-  const [partnerCustomerIds, setPartnerCustomerIds] = useState<string[]>([])
-  const [partnerCustomers, setPartnerCustomers] = useState<CustomerSearchItem[]>([])
-  const [partnerResolveLoading, setPartnerResolveLoading] = useState(false)
-  const [partnerResolveError, setPartnerResolveError] = useState<string | null>(null)
   const [startAt, setStartAt] = useState(initialQuerySettings.startAt)
   const [endAt, setEndAt] = useState(initialQuerySettings.endAt)
   const [pageSize, setPageSize] = useState(initialQuerySettings.pageSize)
@@ -74,7 +64,6 @@ export function LogDashboard({ mode }: LogDashboardProps) {
   const [exportNotice, setExportNotice] = useState<string | null>(null)
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
-  const isPartnerResolvedMode = mode === 'partner' && selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
   const channelFilterKey = useMemo(() => {
     if (!schema) {
       return null
@@ -231,36 +220,6 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     }
   }
 
-  const onResolvePartnerUsers = async () => {
-    const normalizedPartnerId = partnerId.trim()
-
-    if (!normalizedPartnerId) {
-      setPartnerResolveError('partner ID를 입력해 주세요.')
-      setPartnerCustomerIds([])
-      setPartnerCustomers([])
-      return
-    }
-
-    setPartnerResolveLoading(true)
-    setPartnerResolveError(null)
-
-    try {
-      const result = await resolveCustomersByPartnerId(normalizedPartnerId)
-      setPartnerCustomerIds(result.customerIds)
-      setPartnerCustomers(result.customers)
-
-      if (result.customerIds.length === 0) {
-        setPartnerResolveError('해당 partner ID로 조회 가능한 사용자 ID를 찾지 못했습니다.')
-      }
-    } catch (error) {
-      setPartnerCustomerIds([])
-      setPartnerCustomers([])
-      setPartnerResolveError(error instanceof Error ? error.message : 'partner ID 조회 실패')
-    } finally {
-      setPartnerResolveLoading(false)
-    }
-  }
-
   const resolveCustomerIdFromInputs = async (): Promise<string | null> => {
     const normalizedCustomerId = customerId.trim()
     if (normalizedCustomerId) {
@@ -316,14 +275,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     }
 
     let normalizedCustomerId = customerId.trim()
-    const normalizedPartnerCustomerIds = partnerCustomerIds
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0)
 
-    const effectiveCustomerIds =
-      mode === 'partner' && normalizedCustomerId.length === 0 ? normalizedPartnerCustomerIds : []
-
-    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+    if (!normalizedCustomerId) {
       try {
         normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
       } catch (error) {
@@ -335,8 +288,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
       }
     }
 
-    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
-      const message = 'Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.'
+    if (!normalizedCustomerId) {
+      const message = 'Customer ID를 입력해 주세요.'
       setChannelError(message)
       setCustomerError(message)
       setChannelOptions([])
@@ -348,11 +301,9 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     setChannelOptions([])
 
     try {
-      const result = await postDataQuery({
+      const queryPayload = {
         dataType,
-        ...(effectiveCustomerIds.length > 0
-          ? { customerIds: effectiveCustomerIds }
-          : { customerId: normalizedCustomerId }),
+        customerId: normalizedCustomerId,
         dateRange: {
           start: '2000-01-01T00:00:00.000Z',
           end: new Date().toISOString(),
@@ -360,7 +311,11 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         columns: [channelFilterKey],
         pageSize: 1000,
         includeTotal: false,
-      })
+      }
+
+      console.log('[채널 조회] request:', JSON.stringify(queryPayload))
+      const result = await postDataQuery(queryPayload)
+      console.log('[채널 조회] response: rows=%d, sample=%s', result.rows.length, JSON.stringify(result.rows.slice(0, 3)))
 
       const uniqueChannels = Array.from(
         new Set(
@@ -385,15 +340,10 @@ export function LogDashboard({ mode }: LogDashboardProps) {
 
   const executeQuery = async (overrideFilterInputs?: FilterInputState) => {
     let normalizedCustomerId = customerId.trim()
-    const normalizedPartnerCustomerIds = partnerCustomerIds
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0)
-    const effectiveCustomerIds =
-      mode === 'partner' && normalizedCustomerId.length === 0 ? normalizedPartnerCustomerIds : []
     const requestStart = toIsoString(startAt)
     const requestEnd = toIsoString(endAt)
 
-    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+    if (!normalizedCustomerId) {
       try {
         normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
       } catch (error) {
@@ -404,8 +354,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
       }
     }
 
-    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
-      const message = 'Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.'
+    if (!normalizedCustomerId) {
+      const message = 'Customer ID를 입력해 주세요.'
       setQueryError(message)
       setCustomerError(message)
       return
@@ -418,9 +368,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     try {
       const result = await postDataQuery({
         dataType,
-        ...(effectiveCustomerIds.length > 0
-          ? { customerIds: effectiveCustomerIds }
-          : { customerId: normalizedCustomerId }),
+        customerId: normalizedCustomerId,
         dateRange: {
           start: requestStart,
           end: requestEnd,
@@ -438,10 +386,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         id: `${Date.now()}-success`,
         executedAt: new Date().toISOString(),
         dataType,
-        customerId:
-          effectiveCustomerIds.length > 0
-            ? `partner:${partnerId.trim()} (${effectiveCustomerIds.length} users)`
-            : normalizedCustomerId,
+        customerId: normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
         pageSize,
@@ -461,10 +406,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         id: `${Date.now()}-failed`,
         executedAt: new Date().toISOString(),
         dataType,
-        customerId:
-          effectiveCustomerIds.length > 0
-            ? `partner:${partnerId.trim()} (${effectiveCustomerIds.length} users)`
-            : normalizedCustomerId,
+        customerId: normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
         pageSize,
@@ -493,12 +435,12 @@ export function LogDashboard({ mode }: LogDashboardProps) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <section className="rounded-lg border bg-white p-4 lg:col-span-4 h-fit">
-          <h2 className="mb-4 text-sm font-semibold">필터 패널 ({mode === 'partner' ? 'Partner' : 'User'})</h2>
+          <h2 className="mb-4 text-sm font-semibold">필터 패널</h2>
 
           <form className="space-y-4" onSubmit={onSubmit}>
             
-            {/* User Mode: Show Customer Search */}
-            {mode === 'user' && selectedGuide.supportsUserLookup && (
+            {/* Customer Search */}
+            {selectedGuide.supportsUserLookup && (
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
                 <input
@@ -559,85 +501,24 @@ export function LogDashboard({ mode }: LogDashboardProps) {
               <p className="mt-1 text-xs text-slate-600">조회 식별자 키: {selectedGuide.customerKey}</p>
             </div>
 
-            {/* User Mode: Customer ID Input */}
-            {mode === 'user' && (
-                <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-600">Customer ID</span>
-                    <input
-                        className="w-full rounded-md border px-3 py-2 text-sm"
-                        value={customerId}
-                        onChange={(e) => {
-                        const nextCustomerId = e.target.value
-                        setCustomerId(nextCustomerId)
-                        if (nextCustomerId.trim().length > 0) {
-                          setPartnerCustomerIds([])
-                          setPartnerCustomers([])
-                          setPartnerResolveError(null)
-                        }
-                        setCustomerError(null)
-                        setChannelOptions([])
-                        setChannelError(null)
-                        }}
-                        placeholder={selectedGuide.customerExample}
-                        required={!isPartnerResolvedMode && mode === 'user'}
-                    />
-                    <div className="mt-1 text-xs text-slate-500">{selectedGuide.customerInputHint}</div>
-                </label>
-            )}
-
-            {/* Partner Mode: Partner lookup is mandatory/primary */}
-            {/* User Mode: Partner lookup is optional */}
-            {mode === 'partner' && selectedGuide.supportsPartnerLookup && (
-              <div className={`space-y-2 rounded-md border ${mode === 'partner' ? 'bg-blue-50 border-blue-200' : 'bg-slate-50'} p-3`}>
-                <div className="text-xs font-semibold text-slate-700">
-                    {mode === 'partner' ? 'Partner ID 조회 (필수)' : 'Partner ID 기반 사용자 확장'}
-                </div>
-                <div className="flex gap-2">
-                  <input
+            {/* Customer ID Input */}
+            <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Customer ID</span>
+                <input
                     className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={partnerId}
+                    value={customerId}
                     onChange={(e) => {
-                      setPartnerId(e.target.value)
-                      setPartnerCustomerIds([])
-                      setPartnerCustomers([])
-                      setPartnerResolveError(null)
-                      setChannelOptions([])
-                      setChannelError(null)
+                    const nextCustomerId = e.target.value
+                    setCustomerId(nextCustomerId)
+                    setCustomerError(null)
+                    setChannelOptions([])
+                    setChannelError(null)
                     }}
-                    placeholder="partner ID 입력 (users._id)"
-                    required={mode === 'partner'}
-                  />
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={onResolvePartnerUsers}
-                    disabled={partnerResolveLoading}
-                  >
-                    {partnerResolveLoading ? '확인 중...' : '사용자 불러오기'}
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500">partner ID를 기준으로 users.members 목록을 customerIds로 확장해 일괄 조회합니다.</p>
-                {partnerResolveError && <p className="text-xs text-red-600">{partnerResolveError}</p>}
-                {!partnerResolveError && partnerCustomerIds.length > 0 && (
-                  <p className="text-xs text-emerald-700">조회 대상 사용자 {partnerCustomerIds.length}명 로드됨</p>
-                )}
-                {partnerCustomers.length > 0 && (
-                  <div className="max-h-24 overflow-auto rounded-md border bg-white p-2">
-                    <ul className="space-y-1 text-xs text-slate-600">
-                      {partnerCustomers.slice(0, 20).map((customer) => (
-                        <li key={customer.id}>
-                          {customer.id}
-                          {customer.email ? ` · ${customer.email}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                    {partnerCustomers.length > 20 && (
-                      <p className="mt-1 text-[11px] text-slate-500">외 {partnerCustomers.length - 20}명</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                    placeholder={selectedGuide.customerExample}
+                    required
+                />
+                <div className="mt-1 text-xs text-slate-500">{selectedGuide.customerInputHint}</div>
+            </label>
 
             {supportsChannelSelection && (
               <div className="space-y-2 rounded-md border bg-slate-50 p-3">

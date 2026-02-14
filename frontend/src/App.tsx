@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { UserLogPage } from './pages/UserLogPage'
-import { PartnerLogPage } from './pages/PartnerLogPage'
 import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
 
@@ -18,7 +17,6 @@ function AppRoutes() {
         <Routes>
             <Route element={<DashboardLayout />}>
                 <Route path="/" element={<UserLogPage />} />
-                <Route path="/partner-logs" element={<PartnerLogPage />} />
                 <Route path="/admin/users" element={<AdminPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

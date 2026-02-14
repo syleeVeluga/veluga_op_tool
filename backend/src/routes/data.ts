@@ -164,6 +164,11 @@ dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
   const pipeline = buildAggregationPipeline(request);
   const pageSize = Math.min(request.pageSize ?? 100, env.MAX_EXPORT_ROWS);
 
+  console.log("[data/query] dataType=%s collection=%s.%s customerId=%s customerIds=%s",
+    request.dataType, schema.dbName, schema.collection,
+    request.customerId ?? "-", request.customerIds?.join(",") ?? "-");
+  console.log("[data/query] pipeline=%s", JSON.stringify(pipeline));
+
   try {
     const db = await getDb(schema.dbName);
     const rows = await db
@@ -194,6 +199,8 @@ dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
 
     const hasMore = rows.length > pageSize;
     const visibleRows = hasMore ? rows.slice(0, pageSize) : rows;
+
+    console.log("[data/query] result: rows=%d hasMore=%s", visibleRows.length, hasMore);
 
     const lastRow = visibleRows[visibleRows.length - 1] as
       | { _id?: unknown; [key: string]: unknown }
