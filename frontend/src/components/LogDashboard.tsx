@@ -354,8 +354,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
           ? { customerIds: effectiveCustomerIds }
           : { customerId: normalizedCustomerId }),
         dateRange: {
-          start: toIsoString(startAt),
-          end: toIsoString(endAt),
+          start: '2000-01-01T00:00:00.000Z',
+          end: new Date().toISOString(),
         },
         columns: [channelFilterKey],
         pageSize: 1000,
@@ -651,7 +651,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
                   >
                     {channelLoading ? '채널 조회 중...' : '채널 조회'}
                   </button>
-                  <p className="text-xs text-slate-500">Customer ID 기준으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
+                  <p className="text-xs text-slate-500">Customer ID 기준(기간 무관)으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
                 </div>
 
                 {channelError && <p className="text-xs text-red-600">{channelError}</p>}
