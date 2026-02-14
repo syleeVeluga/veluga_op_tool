@@ -107,6 +107,153 @@
   - 비밀번호 초기화 및 권한 관리 UI
 - [x] 프론트엔드-백엔드 연동 확인
 
+### 신규 태스크 (2026-02-15) — 대화 Q/A 세션 매핑
+
+#### 배경/문제
+- [ ] `conversations` 조회 시 사용자 질문만 노출되는 케이스 확인
+  - 현재 `backend/src/config/schema/conversations.ts`의 `customerField=creator` 기준 필터로 인해,
+    동일 `session` 내 답변 메시지(다른 `creator`/`creatorType`)가 누락될 수 있음
+
+#### 목표
+- [ ] 채널별 조회에서 사용자 질문과 답변을 같은 `session` 기준으로 함께 조회
+- [ ] 결과를 Q/A 분석 가능한 형태(세션/턴 단위)로 제공
+- [ ] 각 질문/답변(또는 턴) 단위로 사용 크레딧(차감량) 표시 가능하도록 로그 결합
+- [ ] 최종 답변에 사용된 모델(`finalAnswerModel`/`aiModel`)을 로그 조회 결과에 포함
+
+#### 고객 보고용 출력 기준 (확정)
+- [ ] **보고서 기본 단위**: 1행 = 고객 질문 1건 + 해당 질문의 최종 답변 1건(턴 단위)
+- [ ] **필수 출력 컬럼**
+  - [ ] `발생시각`(질문 시각), `채널`, `세션ID`, `고객ID`
+  - [ ] `질문 내용`, `최종 답변 내용`
+  - [ ] `최종 답변 모델`(예: GPT 계열 모델명)
+  - [ ] `차감 크레딧`(해당 턴), `세션 누적 크레딧`
+- [ ] **정렬 기준**: 고객 보고서는 기본 `발생시각 오름차순`(필요 시 최신순 옵션)
+- [ ] **모델 매핑 우선순위(고객 보고용 규칙)**
+  - [ ] 1순위: 답변 로그에 직접 기록된 모델값 사용
+  - [ ] 2순위: 동일 `session` + 동일 `channel` 내 가장 가까운 사용량 로그의 모델값 사용
+  - [ ] 3순위: 동일 세션 내 직전 유효 모델값 승계
+  - [ ] 없으면 `unknown`으로 표기(빈값 금지)
+- [ ] **시간 매칭 윈도우(고객 보고용 규칙)**
+  - [ ] 기본 윈도우: 답변 시각 기준 ±60초 내 사용량 로그 우선 매칭
+  - [ ] 보조 윈도우: 매칭 실패 시 직전 5분 이내 로그까지 확장
+  - [ ] 보조 윈도우도 실패 시 `creditUsed=0`, `finalAnswerModel=unknown` 처리
+- [ ] **보고서 신뢰도 표기**
+  - [ ] 매핑 성공 출처를 `matchSource`로 표시: `direct`, `nearby`, `fallback`, `unmatched`
+  - [ ] 고객사 전달본에는 누락/추정 건수 요약(예: unmatched n건) 포함
+
+#### 고객 보고용 API 확정 스펙 (요청/응답)
+- [ ] **엔드포인트**: `POST /api/data/query` (`dataType: conversations`)
+- [ ] **요청 필드(추가)**
+  - [ ] `includeSessionMessages: true` (질문+답변 턴 구성 활성화)
+  - [ ] `reportMode: "customer"` (고객 보고용 컬럼/정렬/매핑 규칙 적용)
+  - [ ] `sortOrder: "asc" | "desc"` (기본 `asc`)
+  - [ ] `matchWindowSec?: number` (기본 60, 최대 300)
+- [ ] **응답 필드(행 단위)**
+  - [ ] `occurredAt`, `channel`, `sessionId`, `customerId`
+  - [ ] `questionText`, `finalAnswerText`
+  - [ ] `finalAnswerModel`
+  - [ ] `creditUsed`, `sessionCreditTotal`
+  - [ ] `matchSource` (`direct` | `nearby` | `fallback` | `unmatched`)
+- [ ] **응답 메타**
+  - [ ] `summary.unmatchedCount`, `summary.fallbackCount`, `summary.totalCreditUsed`
+
+##### 요청 예시 (고객 보고용)
+```json
+{
+  "dataType": "conversations",
+  "customerId": "65965c32ee6de0ec4c44d183",
+  "dateRange": {
+    "start": "2026-02-01T00:00:00.000Z",
+    "end": "2026-02-15T23:59:59.999Z"
+  },
+  "filters": {
+    "channel": "67a6d8a4f1f2b3c4d5e6f701"
+  },
+  "includeSessionMessages": true,
+  "reportMode": "customer",
+  "sortOrder": "asc",
+  "matchWindowSec": 60,
+  "pageSize": 100
+}
+```
+
+##### 응답 예시 (고객 보고용)
+```json
+{
+  "rows": [
+    {
+      "occurredAt": "2026-02-15T01:20:11.000Z",
+      "channel": "67a6d8a4f1f2b3c4d5e6f701",
+      "sessionId": "67af9f2e1c2d3e4f5a6b7c80",
+      "customerId": "65965c32ee6de0ec4c44d183",
+      "questionText": "지난달 사용량 요약 보여줘",
+      "finalAnswerText": "지난달 총 128건 요청, 차감 크레딧은 42.7 입니다.",
+      "finalAnswerModel": "gpt-4.1-mini",
+      "creditUsed": 0.37,
+      "sessionCreditTotal": 4.82,
+      "matchSource": "direct"
+    },
+    {
+      "occurredAt": "2026-02-15T01:22:03.000Z",
+      "channel": "67a6d8a4f1f2b3c4d5e6f701",
+      "sessionId": "67af9f2e1c2d3e4f5a6b7c80",
+      "customerId": "65965c32ee6de0ec4c44d183",
+      "questionText": "토큰 사용량도 포함해줘",
+      "finalAnswerText": "입력 12,840 / 출력 31,220 토큰입니다.",
+      "finalAnswerModel": "unknown",
+      "creditUsed": 0,
+      "sessionCreditTotal": 4.82,
+      "matchSource": "unmatched"
+    }
+  ],
+  "summary": {
+    "totalRows": 2,
+    "totalCreditUsed": 0.37,
+    "fallbackCount": 0,
+    "unmatchedCount": 1
+  },
+  "pageSize": 100,
+  "hasMore": false
+}
+```
+
+#### 작업 계획 (현재 범위)
+- [ ] 1) 실데이터 규칙 확정 (스키마/값 검증)
+  - [ ] `prod.chats`의 `creatorType` 실제 값 집계(`user`, `assistant`, `bot` 등) 확인
+  - [ ] `session`/`channel`/`createdAt` 누락률 및 타입(ObjectId/string) 점검
+  - [ ] 답변 메시지 저장 컬렉션이 `chats` 외부인지 최종 확인(필요 시 대체 소스 확정)
+  - [ ] 모델 정보 소스 확정: `botchats.aiModel` vs `usagelogs` 관련 필드 우선순위 정의
+
+- [ ] 2) 백엔드 조회 모델 설계 (sessionId 매핑)
+  - [ ] 기존 `/api/data/query`의 `conversations` 경로에 `includeSessionMessages`(가칭) 옵션 설계
+  - [ ] 1차: 사용자 조건으로 대상 `session` 집합 추출(기간/채널/고객 조건 유지)
+  - [ ] 2차: 추출된 `session` 전체 메시지 재조회(질문+답변) 및 시간순 정렬
+  - [ ] 3차: `api_usage_logs`(크레딧) + 모델 소스(`botchats` 또는 확정 소스)를 `session/channel/timestamp` 기준 결합
+  - [ ] 응답 스키마 확장: `session`, `creatorType`, `text`, `createdAt`, `turnIndex`, `isQuestion`, `isAnswer`, `creditUsed`, `usageType`, `finalAnswerModel`(가칭)
+  - [ ] 페이징 기준을 메시지 단위가 아닌 세션 단위로 정의(커서 정책 명시)
+
+- [ ] 3) 성능/안정성 가드
+  - [ ] 세션 확장 조회 상한(`maxSessionsPerPage`, `maxMessagesPerSession`) 도입
+  - [ ] Mongo 인덱스 점검: `chats(session, createdAt)`, `chats(creator, createdAt)`, `chats(channel, createdAt)`
+  - [ ] 사용량 결합 인덱스 점검: `usagelogs(channel, createdAt)`, 필요 시 `usagelogs(creator, createdAt)`
+  - [ ] 모델 결합 인덱스 점검: `botchats(channel, createdAt)` 및 대체 소스 인덱스
+  - [ ] timeout/메모리 초과 방지 가드레일 및 실패 시 에러 메시지 표준화
+
+- [ ] 4) 프론트 UX 반영
+  - [ ] `conversations` 조회 옵션에 “질문+답변 함께 보기(session 기준)” 토글 추가
+  - [ ] 결과 테이블에 `creatorType`/`session` 기본 노출, 세션 그룹 뷰(또는 정렬) 적용
+  - [ ] 결과 테이블에 `creditUsed` 컬럼(질문/답변별) 및 세션 합계 표시
+  - [ ] 결과 테이블에 `finalAnswerModel` 컬럼 추가(답변 행 우선 표시)
+  - [ ] Q/A 맥락 확인을 위한 기본 정렬: `session asc` + `createdAt asc`(또는 세션별 타임라인)
+
+- [ ] 5) 검증/릴리즈
+  - [ ] 스모크 테스트 추가: 동일 `session`에서 질문/답변 동시 반환 검증
+    - [ ] `backend/scripts/smoke-conversation-session-mapping.ts` (신규)
+  - [ ] 스모크 테스트 확장: Q/A 행에 `creditUsed` 매핑(존재/합계) 검증
+  - [ ] 스모크 테스트 확장: 답변 행 `finalAnswerModel` 매핑 검증(누락 시 fallback 규칙 검증)
+  - [ ] 회귀 점검: 기존 `conversations` 단일 메시지 조회 모드 호환성 확인
+  - [ ] 결과 샘플(실제 customerId 1건) 캡처 후 `PROJECT_STATUS.md`에 반영
+
 ---
 
 ## 미완료 항목 (다음 작업)
@@ -481,6 +628,11 @@ user_log_dashboard/
 
 | 날짜 | 변경 내용 |
 |------|-----------|
+| 2026-02-15 | 고객 보고용 API 스펙 확정: `/api/data/query`에 `includeSessionMessages/reportMode` 기준 요청 필드, 응답 행(`questionText/finalAnswerText/finalAnswerModel/creditUsed/matchSource`) 및 `summary` 집계 필드, 요청/응답 JSON 예시를 문서화. |
+| 2026-02-15 | 고객 보고용 확정 스펙 추가: 대화 로그 출력 단위를 “질문+최종답변(턴)”으로 고정하고, 필수 컬럼(답변모델/차감크레딧 포함), 시간 매칭 윈도우(±60초/최대 5분), fallback 및 `matchSource` 표기 규칙을 명시. |
+| 2026-02-15 | 신규 태스크 보강: 대화 로그 조회 결과에 최종 답변 모델(`finalAnswerModel`/`aiModel`) 포함 요구사항을 추가하고, 모델 소스 확정·결합 설계·UI 컬럼·스모크 검증 항목까지 반영. |
+| 2026-02-15 | 신규 태스크 보강: 대화 로그 조회 요구사항에 “질문/답변별 사용 크레딧(차감량) 포함”을 추가하고, `api_usage_logs` 결합·응답 필드(`creditUsed`)·UI 컬럼·스모크 검증 항목까지 계획에 반영. |
+| 2026-02-15 | 신규 태스크 추가: 대화 로그에서 사용자 질문만 노출되는 이슈 대응을 위해 `session` 기반 Q/A 매핑 작업계획 수립(실데이터 규칙 확정 → 백엔드 조회 모델 확장 → 성능 가드 → 프론트 노출 → 스모크 테스트). |
 | 2026-02-15 | 채널 조회/선택 장애 재수정: `conversations.channel`이 `ObjectId` 타입인데 검색 필터가 `$regex`만 사용되어 선택 후 0건이 되던 문제를 수정. `backend/src/services/queryBuilder.ts`에서 search 필터 입력이 ObjectId 형태일 때 `string/ObjectId` 동시 정확매칭(`$in`)으로 처리하도록 보강. |
 | 2026-02-14 | 최초 작성. Phase 1 부분 완료 상태에서 시작. |
 | 2026-02-14 | `/api/schema/:dataType` 응답 포맷 `{columns,filters}` 고정, schemaProvider/registry/6개 schema 스켈레톤 추가, 최소 스모크 테스트(정상+오류) 추가. |
