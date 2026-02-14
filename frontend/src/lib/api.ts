@@ -41,6 +41,7 @@ export interface QueryRequestPayload {
     end: string
   }
   filters?: Record<string, QueryFilterValue>
+  columns?: string[]
   pageSize?: number
   includeTotal?: boolean
 }

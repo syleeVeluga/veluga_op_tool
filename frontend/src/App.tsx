@@ -97,6 +97,7 @@ function App() {
   const [schemaError, setSchemaError] = useState<string | null>(null)
 
   const [filterInputs, setFilterInputs] = useState<FilterInputState>({})
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
 
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([])
   const [total, setTotal] = useState<number | undefined>(undefined)
@@ -119,6 +120,7 @@ function App() {
 
         setSchema(result)
         setFilterInputs({})
+        setSelectedColumns(result.columns.map((column) => column.key))
       } catch (error) {
         if (!active) {
           return
@@ -178,12 +180,34 @@ function App() {
     }
   }, [customerQuery])
 
-  const resultColumns = useMemo(() => {
+  const availableColumns = useMemo(() => {
     if (rows.length > 0) {
       return Object.keys(rows[0])
     }
     return schema?.columns.map((c) => c.key) ?? []
   }, [rows, schema])
+
+  const resultColumns = useMemo(() => {
+    if (selectedColumns.length === 0) {
+      return availableColumns
+    }
+
+    const set = new Set(availableColumns)
+    return selectedColumns.filter((column) => set.has(column))
+  }, [availableColumns, selectedColumns])
+
+  const toggleColumn = (columnKey: string) => {
+    setSelectedColumns((prev) => {
+      if (prev.includes(columnKey)) {
+        if (prev.length === 1) {
+          return prev
+        }
+        return prev.filter((column) => column !== columnKey)
+      }
+
+      return [...prev, columnKey]
+    })
+  }
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -200,6 +224,7 @@ function App() {
           end: toIsoString(endAt),
         },
         filters: buildFilters(schema, filterInputs),
+        columns: selectedColumns,
         pageSize,
         includeTotal,
       })
@@ -453,6 +478,25 @@ function App() {
               {hasMore ? ' / hasMore: true' : ''}
             </div>
           </div>
+
+          {availableColumns.length > 0 && (
+            <div className="mb-3 rounded-md border bg-slate-50 p-3">
+              <div className="mb-2 text-xs font-semibold text-slate-700">표시 컬럼</div>
+              <div className="flex flex-wrap gap-3">
+                {availableColumns.map((column) => (
+                  <label key={column} className="flex items-center gap-1 text-xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedColumns.includes(column)}
+                      onChange={() => toggleColumn(column)}
+                    />
+                    {column}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">최소 1개 컬럼은 항상 선택됩니다.</p>
+            </div>
+          )}
 
           {queryError && <p className="mb-3 text-sm text-red-600">{queryError}</p>}
 
