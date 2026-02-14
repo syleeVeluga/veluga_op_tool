@@ -35,7 +35,7 @@ const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
     label: '대화 로그',
     description: '채팅/대화 단위 로그를 조회합니다.',
     customerKey: 'creator (사용자 ID)',
-    customerInputHint: '사용자 ID가 필요합니다. 이메일/이름을 알면 아래 고객 검색으로 찾을 수 있습니다.',
+    customerInputHint: '사용자 ID가 필요합니다. 이메일/이름을 알면 상단 고객 검색으로 찾을 수 있습니다.',
     customerExample: '예: 65f0c1e2d3a4b5c6d7e8f901',
     supportsUserLookup: true,
     supportsPartnerLookup: true,
@@ -432,6 +432,9 @@ function App() {
   const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
   const [customerLoading, setCustomerLoading] = useState(false)
   const [customerError, setCustomerError] = useState<string | null>(null)
+  const [channelOptions, setChannelOptions] = useState<string[]>([])
+  const [channelLoading, setChannelLoading] = useState(false)
+  const [channelError, setChannelError] = useState<string | null>(null)
   const [partnerId, setPartnerId] = useState('')
   const [partnerCustomerIds, setPartnerCustomerIds] = useState<string[]>([])
   const [partnerCustomers, setPartnerCustomers] = useState<CustomerSearchItem[]>([])
@@ -459,6 +462,21 @@ function App() {
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
   const isPartnerResolvedMode = selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
+  const channelFilterKey = useMemo(() => {
+    if (!schema) {
+      return null
+    }
+
+    const exactChannel = schema.filters.find((filter) => filter.key === 'channel')
+    if (exactChannel) {
+      return exactChannel.key
+    }
+
+    const fallbackChannel = schema.filters.find((filter) => /channel/i.test(filter.key))
+    return fallbackChannel?.key ?? null
+  }, [schema])
+  const supportsChannelSelection = Boolean(channelFilterKey)
+  const selectedChannel = channelFilterKey ? asStringValue(filterInputs[channelFilterKey]) : ''
 
   const availableColumns = useMemo(() => {
     if (rows.length > 0) {
@@ -538,6 +556,68 @@ function App() {
     }
   }
 
+  const onLoadCustomerChannels = async () => {
+    if (!channelFilterKey) {
+      return
+    }
+
+    const normalizedCustomerId = customerId.trim()
+    const normalizedCustomerIds = partnerCustomerIds
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+
+    if (!normalizedCustomerId && normalizedCustomerIds.length === 0) {
+      setChannelError('Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.')
+      setChannelOptions([])
+      return
+    }
+
+    setChannelLoading(true)
+    setChannelError(null)
+    setChannelOptions([])
+
+    const filters = buildFilters(schema, filterInputs)
+    if (filters && channelFilterKey in filters) {
+      delete filters[channelFilterKey]
+    }
+
+    try {
+      const result = await postDataQuery({
+        dataType,
+        ...(normalizedCustomerIds.length > 0
+          ? { customerIds: normalizedCustomerIds }
+          : { customerId: normalizedCustomerId }),
+        dateRange: {
+          start: toIsoString(startAt),
+          end: toIsoString(endAt),
+        },
+        filters,
+        columns: [channelFilterKey],
+        pageSize: 1000,
+        includeTotal: false,
+      })
+
+      const uniqueChannels = Array.from(
+        new Set(
+          result.rows
+            .map((row) => String(row[channelFilterKey] ?? '').trim())
+            .filter((value) => value.length > 0),
+        ),
+      ).sort((left, right) => left.localeCompare(right))
+
+      setChannelOptions(uniqueChannels)
+
+      if (uniqueChannels.length === 0) {
+        setChannelError('해당 조건에서 선택 가능한 채널이 없습니다.')
+      }
+    } catch (error) {
+      setChannelError(error instanceof Error ? error.message : '채널 조회 실패')
+      setChannelOptions([])
+    } finally {
+      setChannelLoading(false)
+    }
+  }
+
   useEffect(() => {
     let active = true
 
@@ -609,6 +689,31 @@ function App() {
     setPartnerResolveError(null)
     setPartnerResolveLoading(false)
   }, [dataType])
+
+  useEffect(() => {
+    setChannelOptions([])
+    setChannelLoading(false)
+    setChannelError(null)
+  }, [dataType])
+
+  useEffect(() => {
+    setChannelOptions([])
+    setChannelError(null)
+
+    if (!channelFilterKey) {
+      return
+    }
+
+    setFilterInputs((prev) => {
+      if (!(channelFilterKey in prev)) {
+        return prev
+      }
+
+      const next = { ...prev }
+      delete next[channelFilterKey]
+      return next
+    })
+  }, [channelFilterKey, customerId, partnerCustomerIds])
 
   useEffect(() => {
     const keyword = customerQuery.trim()
@@ -704,9 +809,7 @@ function App() {
     saveStoredFilterState(dataType, customerId, sanitized)
   }, [customerId, dataType, filterInputs, schema])
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
+  const executeQuery = async (overrideFilterInputs?: FilterInputState) => {
     const normalizedCustomerId = customerId.trim()
     const normalizedCustomerIds = partnerCustomerIds
     const requestStart = toIsoString(startAt)
@@ -731,7 +834,7 @@ function App() {
           start: requestStart,
           end: requestEnd,
         },
-        filters: buildFilters(schema, filterInputs),
+        filters: buildFilters(schema, overrideFilterInputs ?? filterInputs),
         columns: selectedColumns,
         pageSize,
         includeTotal,
@@ -785,6 +888,11 @@ function App() {
     }
   }
 
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await executeQuery()
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b bg-white">
@@ -799,6 +907,50 @@ function App() {
           <h2 className="mb-4 text-sm font-semibold">필터 패널</h2>
 
           <form className="space-y-4" onSubmit={onSubmit}>
+            {selectedGuide.supportsUserLookup ? (
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
+                <input
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder="이름/이메일/ID 2글자 이상"
+                />
+                <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
+                {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
+                {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
+                {!customerLoading && customerOptions.length > 0 && (
+                  <ul className="mt-2 max-h-40 overflow-auto rounded-md border bg-white">
+                    {customerOptions.map((customer) => (
+                      <li key={customer.id}>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100"
+                          onClick={() => {
+                            setCustomerId(customer.id)
+                            setCustomerQuery('')
+                            setCustomerOptions([])
+                            setChannelOptions([])
+                            setChannelError(null)
+                          }}
+                        >
+                          <div className="font-medium text-slate-800">{customer.id}</div>
+                          <div className="text-slate-500">
+                            {customer.name || '-'}
+                            {customer.email ? ` · ${customer.email}` : ''}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </label>
+            ) : (
+              <div className="rounded-md border border-dashed bg-white p-3 text-xs text-slate-600">
+                이 데이터 타입은 자동완성 검색 대신 운영자가 알고 있는 식별값을 직접 입력해 조회합니다.
+              </div>
+            )}
+
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-600">Data Type</span>
               <select
@@ -825,7 +977,11 @@ function App() {
               <input
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                onChange={(e) => {
+                  setCustomerId(e.target.value)
+                  setChannelOptions([])
+                  setChannelError(null)
+                }}
                 placeholder={selectedGuide.customerExample}
                 required={!isPartnerResolvedMode}
               />
@@ -844,6 +1000,8 @@ function App() {
                       setPartnerCustomerIds([])
                       setPartnerCustomers([])
                       setPartnerResolveError(null)
+                      setChannelOptions([])
+                      setChannelError(null)
                     }}
                     placeholder="partner ID 입력 (users._id)"
                   />
@@ -879,47 +1037,63 @@ function App() {
               </div>
             )}
 
-            {selectedGuide.supportsUserLookup ? (
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
-                <input
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={customerQuery}
-                  onChange={(e) => setCustomerQuery(e.target.value)}
-                  placeholder="이름/이메일/ID 2글자 이상"
-                />
-                <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
-                {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
-                {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
-                {!customerLoading && customerOptions.length > 0 && (
-                  <ul className="mt-2 max-h-40 overflow-auto rounded-md border bg-white">
-                    {customerOptions.map((customer) => (
-                      <li key={customer.id}>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100"
-                          onClick={() => {
-                            setCustomerId(customer.id)
-                            setCustomerQuery('')
-                            setCustomerOptions([])
-                          }}
-                        >
-                          <div className="font-medium text-slate-800">{customer.id}</div>
-                          <div className="text-slate-500">
-                            {customer.name || '-'}
-                            {customer.email ? ` · ${customer.email}` : ''}
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+            {supportsChannelSelection && (
+              <div className="space-y-2 rounded-md border bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-700">1단계 · 채널 조회/선택</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={onLoadCustomerChannels}
+                    disabled={channelLoading || queryLoading || schemaLoading}
+                  >
+                    {channelLoading ? '채널 조회 중...' : '채널 조회'}
+                  </button>
+                  <p className="text-xs text-slate-500">Customer ID 기준으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
+                </div>
+
+                {channelError && <p className="text-xs text-red-600">{channelError}</p>}
+                {!channelError && channelOptions.length > 0 && (
+                  <p className="text-xs text-emerald-700">선택 가능한 채널 {channelOptions.length}개</p>
                 )}
-              </label>
-            ) : (
-              <div className="rounded-md border border-dashed bg-white p-3 text-xs text-slate-600">
-                이 데이터 타입은 자동완성 검색 대신 운영자가 알고 있는 식별값을 직접 입력해 조회합니다.
+
+                {channelOptions.length > 0 && channelFilterKey && (
+                  <div className="max-h-40 overflow-auto rounded-md border bg-white">
+                    <ul className="divide-y">
+                      {channelOptions.map((channel) => (
+                        <li key={channel}>
+                          <button
+                            type="button"
+                            className={`w-full px-3 py-2 text-left text-xs hover:bg-slate-100 ${selectedChannel === channel ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700'}`}
+                            onClick={() => {
+                              const nextFilterInputs: FilterInputState = {
+                                ...filterInputs,
+                                [channelFilterKey]: channel,
+                              }
+
+                              setFilterInputs((prev) => ({
+                                ...prev,
+                                [channelFilterKey]: channel,
+                              }))
+
+                              if (dataType === 'conversations') {
+                                void executeQuery(nextFilterInputs)
+                              }
+                            }}
+                          >
+                            {channel}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
+
+            <div className="rounded-md border border-dashed bg-white p-3 text-xs text-slate-600">
+              2단계 · 아래 조건을 확인한 뒤 로그 조회를 실행합니다.
+            </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
@@ -1067,7 +1241,7 @@ function App() {
               disabled={queryLoading || schemaLoading}
               className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {queryLoading ? '조회 중...' : '조회 실행'}
+              {queryLoading ? '로그 조회 중...' : '로그 조회'}
             </button>
           </form>
         </section>

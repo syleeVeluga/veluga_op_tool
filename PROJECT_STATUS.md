@@ -176,12 +176,15 @@
 - [x] 필터 폼(고객/기간/데이터유형 + 스키마 동적 필터) 1차 구현
 - [x] 조회 결과 테이블 렌더링 + 기본 메타(`rows`, `total`, `hasMore`) 노출
 - [x] 고객 검색 자동완성(`GET /api/customers/search`) 연동
+- [x] 고객 검색 UI를 필터 패널 상단으로 재배치
 - [x] 결과 테이블 컬럼 선택/숨김 UX 정리
 - [x] 컬럼 설정 상태 저장(localStorage) 적용
 - [x] 조회 조건(기간/페이지 크기) 상태 저장(localStorage) 적용
 - [x] 데이터 타입/총건수 옵션(includeTotal) 상태 저장(localStorage) 적용
 - [x] 필터값(customerId + schema filters) 상태 저장(localStorage) 적용
 - [x] 결과 영역 실행 이력(최근 10건) 표시
+- [x] 고객 기준 채널 조회/선택 UX 추가(1단계 채널 조회, 2단계 로그 조회)
+- [x] `conversations` 데이터 타입에서 채널 선택 시 자동 로그 조회
 
 ### Phase 5 (착수)
 - [x] 결과 영역 액션 버튼 뼈대 추가 (CSV/JSON)

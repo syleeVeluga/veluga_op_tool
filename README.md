@@ -56,6 +56,8 @@
   - CSV/JSON 클라이언트 다운로드(선택 컬럼 기준)
   - 운영자 가이드: dataType별 식별자 키 안내
   - partner ID 기반 사용자 확장 조회(`users.members`)
+  - 고객 검색 상단 배치 + 채널 조회/선택 기반 2단계 조회 UX
+  - `conversations`에서 채널 선택 시 대화 로그 자동 조회
 
 미구현(다음 단계):
 
@@ -134,6 +136,15 @@ npm run dev
 - 사용자 이메일/이름 → `고객 검색(자동완성)`으로 사용자 ID(`customerId`) 선택
 - partner ID(파트너 대표 사용자 ID) → `Partner ID 기반 사용자 확장`으로 `users.members` 포함 사용자 ID 묶음 조회
 - 묶음 조회는 현재 `conversations`, `api_usage_logs`, `billing_logs`에서 지원
+
+권장 조회 흐름(UI):
+
+1. 상단 `고객 검색(자동완성)`에서 고객을 선택해 `Customer ID`를 채움
+2. `채널 조회` 버튼으로 해당 고객의 채널 목록을 로드
+3. 채널 선택
+  - `conversations` 데이터 타입은 채널 선택 즉시 대화 로그 자동 조회
+  - 그 외 데이터 타입은 필요 시 `로그 조회` 버튼으로 최종 조회
+4. 기간/필터/컬럼을 조정해 결과 확인 및 CSV/JSON 다운로드
 
 백엔드 기준 관련 API:
 
