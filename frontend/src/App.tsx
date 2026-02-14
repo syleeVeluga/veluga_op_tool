@@ -20,6 +20,7 @@ const DATA_TYPES: DataType[] = [
 ]
 
 const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
+const QUERY_SETTINGS_STORAGE_KEY = 'user-log-dashboard:query-settings:v1'
 
 type FilterInputState = Record<string, string | { min?: string; max?: string }>
 
@@ -112,21 +113,79 @@ function saveStoredColumns(dataType: DataType, columns: string[]): void {
   }
 }
 
+interface QueryUiSettings {
+  startAt: string
+  endAt: string
+  pageSize: number
+}
+
+function getDefaultQueryUiSettings(): QueryUiSettings {
+  const now = new Date()
+  const before = new Date(now)
+  before.setDate(before.getDate() - 7)
+
+  return {
+    startAt: toDatetimeLocalValue(before),
+    endAt: toDatetimeLocalValue(now),
+    pageSize: 100,
+  }
+}
+
+function loadStoredQueryUiSettings(): QueryUiSettings {
+  const defaults = getDefaultQueryUiSettings()
+
+  try {
+    const raw = window.localStorage.getItem(QUERY_SETTINGS_STORAGE_KEY)
+    if (!raw) {
+      return defaults
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+
+    const startCandidate = typeof parsed.startAt === 'string' ? parsed.startAt : defaults.startAt
+    const endCandidate = typeof parsed.endAt === 'string' ? parsed.endAt : defaults.endAt
+
+    const parsedPageSize =
+      typeof parsed.pageSize === 'number'
+        ? parsed.pageSize
+        : typeof parsed.pageSize === 'string'
+          ? Number(parsed.pageSize)
+          : defaults.pageSize
+
+    const safePageSize = Number.isInteger(parsedPageSize) && parsedPageSize > 0 && parsedPageSize <= 1000
+      ? parsedPageSize
+      : defaults.pageSize
+
+    return {
+      startAt: startCandidate,
+      endAt: endCandidate,
+      pageSize: safePageSize,
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function saveStoredQueryUiSettings(settings: QueryUiSettings): void {
+  try {
+    window.localStorage.setItem(QUERY_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
 function App() {
+  const initialQuerySettings = loadStoredQueryUiSettings()
+
   const [dataType, setDataType] = useState<DataType>('api_usage_logs')
   const [customerId, setCustomerId] = useState('')
   const [customerQuery, setCustomerQuery] = useState('')
   const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
   const [customerLoading, setCustomerLoading] = useState(false)
   const [customerError, setCustomerError] = useState<string | null>(null)
-  const [startAt, setStartAt] = useState(() => {
-    const now = new Date()
-    const before = new Date(now)
-    before.setDate(before.getDate() - 7)
-    return toDatetimeLocalValue(before)
-  })
-  const [endAt, setEndAt] = useState(() => toDatetimeLocalValue(new Date()))
-  const [pageSize, setPageSize] = useState(100)
+  const [startAt, setStartAt] = useState(initialQuerySettings.startAt)
+  const [endAt, setEndAt] = useState(initialQuerySettings.endAt)
+  const [pageSize, setPageSize] = useState(initialQuerySettings.pageSize)
   const [includeTotal, setIncludeTotal] = useState(true)
 
   const [schema, setSchema] = useState<DataTypeSchema | null>(null)
@@ -273,6 +332,14 @@ function App() {
 
     saveStoredColumns(dataType, validColumns)
   }, [dataType, schema, selectedColumns])
+
+  useEffect(() => {
+    saveStoredQueryUiSettings({
+      startAt,
+      endAt,
+      pageSize,
+    })
+  }, [startAt, endAt, pageSize])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
