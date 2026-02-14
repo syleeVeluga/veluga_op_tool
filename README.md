@@ -249,7 +249,9 @@ docker build -t log-csv-api:local .
 - 워크플로우: `.github/workflows/deploy-frontend-pages.yml`
 - GitHub Repository Variables 권장값:
   - `VITE_API_BASE_URL=https://<cloud-run-service-url>/api`
-  - `VITE_BASE_PATH=/` (메인 루트 배포)
+  - `VITE_BASE_PATH`는 비워두는 것을 권장 (워크플로에서 자동 계산)
+    - User/Org Pages(`<owner>.github.io`): `/`
+    - Project Pages(일반 저장소): `/<repo>/`
 
 ## 7) 운영 중 서비스
 
