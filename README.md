@@ -55,7 +55,7 @@
 
 - 인증/인가(JWT, RBAC)
 - CSV/JSON Export 엔진
-- 프론트엔드 앱 전체
+- 프론트엔드 기능 연결(필터/조회/다운로드)
 
 진행상황 문서는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 아키텍처는 [ARCHITECTURE.md](ARCHITECTURE.md)에서 확인할 수 있습니다.
 
@@ -114,6 +114,16 @@ npm run dev
 - `http://localhost:8080/api/health`
 - `http://localhost:8080/api/schema/api_usage_logs`
 
+### 프론트엔드 실행
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+기본 URL: `http://localhost:5173`
+
 ## 5) 빌드 및 컨테이너
 
 ```powershell
@@ -151,6 +161,8 @@ docker build -t log-csv-api:local .
 추가 파라미터:
 
 - `-SetEnvVars "KEY=VALUE","KEY2=VALUE2"` : Cloud Run 환경변수 반영
+- `-CanaryPercent <1~99>` : 신규 Revision을 무트래픽 배포 후 지정 비율만 카나리 트래픽 분할
+- `-PromoteCanary` : 카나리 헬스체크 통과 시 신규 Revision 100% 승격
 - `-SkipHealthCheck` : 배포 후 헬스체크(`/health`, `/api/health`, `/api/schema/api_usage_logs`) 생략
 - `-DisableAutoRollback` : 헬스체크 실패 시 자동 롤백 비활성화
 - `-HealthCheckMaxAttempts <N>` : 헬스체크 최대 재시도 횟수 (기본 12)
@@ -169,12 +181,29 @@ docker build -t log-csv-api:local .
   -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"
 ```
 
+카나리 배포 예시 (10% 트래픽 전환 후 통과 시 100% 승격):
+
+```powershell
+.\scripts\deploy-cloudrun.ps1 `
+  -CanaryPercent 10 `
+  -PromoteCanary `
+  -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"
+```
+
 자동 롤백까지 포함한 기본 흐름:
 
 1. 배포 전 현재 최신 Revision 이름 자동 캡처
 2. 새 이미지 빌드/푸시 및 Cloud Run 배포
 3. 서비스 URL 기준 헬스체크 3개 엔드포인트 검증
 4. 실패 시 이전 Revision으로 트래픽 즉시 롤백
+
+카나리 모드(`-CanaryPercent`) 흐름:
+
+1. 기존 안정 Revision 확인
+2. 신규 Revision `--no-traffic` 배포
+3. `신규=CanaryPercent`, `기존=100-CanaryPercent`로 트래픽 분할
+4. 헬스체크 실패 시 기존 Revision 100% 자동 롤백
+5. `-PromoteCanary` 지정 시 통과 후 신규 Revision 100% 승격
 
 ### CI/CD 배포
 

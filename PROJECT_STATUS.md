@@ -1,7 +1,7 @@
 # 프로젝트 진행 상황 — 고객 로그 데이터 추출 대시보드
 
 > 최종 갱신: 2026-02-14
-> 전체 진행률: ~64%
+> 전체 진행률: ~69%
 
 ---
 
@@ -12,7 +12,7 @@
 | Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 55% |
 | Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 65% |
 | Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 78% |
-| Phase 4 | 프론트엔드 레이아웃 + 필터 | ⬜ 미시작 | 0% |
+| Phase 4 | 프론트엔드 레이아웃 + 필터 | 🟡 진행중 | 20% |
 | Phase 5 | 프론트엔드 결과/다운로드 | ⬜ 미시작 | 0% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
 | Phase 7 | 관리자 기능 | ⬜ 미시작 | 0% |
@@ -38,6 +38,7 @@
   - 배포 후 헬스체크(`/health`, `/api/health`, `/api/schema/api_usage_logs`) 자동 검증
   - 실패 시 이전 안정 Revision으로 트래픽 자동 롤백 지원
   - `-SetEnvVars` 파라미터로 Cloud Run 환경변수 반영 지원
+  - `-CanaryPercent`/`-PromoteCanary` 기반 카나리 트래픽 전환/승격 지원
 - [x] GitHub Actions CI/CD (`.github/workflows/deploy-backend-cloudrun.yml`)
   - main 브랜치 backend/** 변경 시 자동 빌드+배포
 - [x] MongoDB Atlas 접속 정보 (`.env.veluga.mongo`)
@@ -151,11 +152,28 @@
   - [x] `/health` 200
   - [x] `/api/health` 200
 
+#### 7) 카나리 트래픽 전환 준비 (신규)
+- [x] 배포 스크립트 카나리 옵션 구현
+  - [x] `-CanaryPercent <1~99>`: 신규 Revision 무트래픽 배포 후 분할 전환
+  - [x] 카나리 실패 시 이전 안정 Revision 100% 자동 롤백
+  - [x] `-PromoteCanary`: 헬스체크 통과 시 신규 Revision 100% 승격
+- [ ] 실서비스 카나리 10% 1회 실행 및 결과 기록
+  - 실행 예시:
+    - `./scripts/deploy-cloudrun.ps1 -CanaryPercent 10 -PromoteCanary -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"`
+
 ### Phase 1 잔여
 - [ ] `shared/types/` — 공유 TypeScript 타입 정의
-- [ ] `frontend/` — React 프로젝트 초기화 (Vite + Tailwind + shadcn/ui)
+- [x] `frontend/` — React 프로젝트 초기화 (Vite + Tailwind)
 - [ ] 백엔드 추가 의존성: jsonwebtoken, bcrypt, fast-csv
 - [ ] 백엔드 디렉토리 구조: routes/, services/, middleware/, models/, config/
+
+### Phase 4 (착수)
+- [x] `frontend/` Vite + React + TypeScript 스캐폴딩
+- [x] Tailwind CSS 기본 설정 (`tailwind.config.js`, `postcss.config.js`, `src/index.css`)
+- [x] MVP 대시보드 레이아웃 초안 (`frontend/src/App.tsx`)
+- [x] 기본 반응형 브레이크포인트 적용 (`sm`, `lg` 레이아웃 분기)
+- [ ] API 연동용 클라이언트 레이어 구성 (`/api/schema`, `/api/data/query`)
+- [ ] 필터 폼(고객/기간/데이터유형) 1차 구현
 
 ### Phase 2 (다음 마일스톤)
 - [ ] **Production 무영향 스키마 실사**

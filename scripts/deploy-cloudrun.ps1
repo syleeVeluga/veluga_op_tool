@@ -5,6 +5,9 @@ param(
   [string]$Service = "log-csv-api",
   [string]$Image = "log-csv-api",
   [string[]]$SetEnvVars = @(),
+  [ValidateRange(0, 99)]
+  [int]$CanaryPercent = 0,
+  [switch]$PromoteCanary,
   [switch]$SkipHealthCheck,
   [switch]$DisableAutoRollback,
   [int]$HealthCheckMaxAttempts = 12,
@@ -62,32 +65,64 @@ function Invoke-HealthCheck {
   return $false
 }
 
+function Get-PrimaryTrafficRevision {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ProjectId,
+    [Parameter(Mandatory = $true)]
+    [string]$Region,
+    [Parameter(Mandatory = $true)]
+    [string]$Service
+  )
+
+  try {
+    $serviceJson = gcloud run services describe $Service `
+      --project $ProjectId `
+      --region $Region `
+      --format json
+
+    if ([string]::IsNullOrWhiteSpace($serviceJson)) {
+      return ""
+    }
+
+    $service = $serviceJson | ConvertFrom-Json
+    $trafficEntries = @($service.status.traffic) | Where-Object {
+      $_.revisionName -and $_.percent -gt 0
+    }
+
+    if (-not $trafficEntries -or $trafficEntries.Count -eq 0) {
+      return ""
+    }
+
+    $primary = $trafficEntries | Sort-Object -Property percent -Descending | Select-Object -First 1
+    return [string]$primary.revisionName
+  }
+  catch {
+    Write-Host "[info] Unable to resolve traffic revision: $($_.Exception.Message)"
+    return ""
+  }
+}
+
+if ($CanaryPercent -gt 0 -and $CanaryPercent -ge 100) {
+  throw "CanaryPercent must be between 1 and 99 when canary rollout is enabled."
+}
+
 $Tag = (Get-Date -Format "yyyyMMdd-HHmmss")
 $ImageUri = "$Region-docker.pkg.dev/$ProjectId/$Repository/$Image`:$Tag"
 
 Write-Host "Using image: $ImageUri"
 
-$PreviousRevision = ""
-try {
-  $PreviousRevision = (
-    gcloud run revisions list `
-      --project $ProjectId `
-      --region $Region `
-      --service $Service `
-      --sort-by "~metadata.creationTimestamp" `
-      --limit 1 `
-      --format "value(metadata.name)"
-  ).Trim()
-}
-catch {
-  Write-Host "[info] Unable to detect previous revision before deploy: $($_.Exception.Message)"
-}
+$PreviousRevision = Get-PrimaryTrafficRevision -ProjectId $ProjectId -Region $Region -Service $Service
 
 if ([string]::IsNullOrWhiteSpace($PreviousRevision)) {
-  Write-Host "[info] Previous revision not found (first deploy or lookup failed)."
+  Write-Host "[info] Previous traffic revision not found (first deploy or lookup failed)."
 }
 else {
-  Write-Host "[info] Previous revision: $PreviousRevision"
+  Write-Host "[info] Previous stable revision: $PreviousRevision"
+}
+
+if ($CanaryPercent -gt 0 -and [string]::IsNullOrWhiteSpace($PreviousRevision)) {
+  throw "Canary rollout requires an existing stable revision with traffic."
 }
 
 Push-Location "$PSScriptRoot\..\backend"
@@ -114,6 +149,10 @@ $deployArgs = @(
   "--memory", "512Mi"
 )
 
+if ($CanaryPercent -gt 0) {
+  $deployArgs += "--no-traffic"
+}
+
 if ($SetEnvVars.Count -gt 0) {
   $envArg = ($SetEnvVars -join ",")
   Write-Host "[deploy] Applying env vars: $envArg"
@@ -121,6 +160,30 @@ if ($SetEnvVars.Count -gt 0) {
 }
 
 & gcloud @deployArgs
+
+$LatestReadyRevision = (
+  gcloud run services describe $Service `
+    --project $ProjectId `
+    --region $Region `
+    --format "value(status.latestReadyRevisionName)"
+).Trim()
+
+if ([string]::IsNullOrWhiteSpace($LatestReadyRevision)) {
+  throw "Failed to resolve latest ready revision after deployment."
+}
+
+Write-Host "[deploy] Latest ready revision: $LatestReadyRevision"
+
+if ($CanaryPercent -gt 0) {
+  $stablePercent = 100 - $CanaryPercent
+  $trafficSpec = "$LatestReadyRevision=$CanaryPercent,$PreviousRevision=$stablePercent"
+  Write-Host "[canary] Applying traffic split: $trafficSpec"
+
+  gcloud run services update-traffic $Service `
+    --project $ProjectId `
+    --region $Region `
+    --to-revisions $trafficSpec
+}
 
 $ServiceUrl = (
   gcloud run services describe $Service `
@@ -160,6 +223,16 @@ if (-not $SkipHealthCheck) {
   }
 
   Write-Host "[health] All post-deploy checks passed."
+
+  if ($CanaryPercent -gt 0 -and $PromoteCanary) {
+    Write-Host "[canary] Promoting revision '$LatestReadyRevision' to 100% traffic"
+    gcloud run services update-traffic $Service `
+      --project $ProjectId `
+      --region $Region `
+      --to-revisions "$LatestReadyRevision=100"
+
+    Write-Host "[canary] Promotion completed."
+  }
 }
 else {
   Write-Host "[health] Post-deploy checks skipped by flag."
