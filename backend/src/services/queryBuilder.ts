@@ -53,6 +53,23 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function resolveSearchCondition(rawValue: string): Document {
+  const keyword = rawValue.trim();
+
+  if (ObjectId.isValid(keyword)) {
+    const objectId = new ObjectId(keyword);
+
+    return {
+      $in: [keyword, objectId],
+    };
+  }
+
+  return {
+    $regex: escapeRegex(keyword),
+    $options: "i",
+  };
+}
+
 function normalizePageSize(pageSize: number | undefined): number {
   const defaultSize = 100;
 
@@ -130,10 +147,7 @@ function applySchemaFilters(
         throw new Error(`search filter '${filterKey}' must be a string`);
       }
 
-      match[filterKey] = {
-        $regex: escapeRegex(rawValue),
-        $options: "i",
-      };
+      match[filterKey] = resolveSearchCondition(rawValue);
       continue;
     }
 

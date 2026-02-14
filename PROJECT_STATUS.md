@@ -481,6 +481,7 @@ user_log_dashboard/
 
 | 날짜 | 변경 내용 |
 |------|-----------|
+| 2026-02-15 | 채널 조회/선택 장애 재수정: `conversations.channel`이 `ObjectId` 타입인데 검색 필터가 `$regex`만 사용되어 선택 후 0건이 되던 문제를 수정. `backend/src/services/queryBuilder.ts`에서 search 필터 입력이 ObjectId 형태일 때 `string/ObjectId` 동시 정확매칭(`$in`)으로 처리하도록 보강. |
 | 2026-02-14 | 최초 작성. Phase 1 부분 완료 상태에서 시작. |
 | 2026-02-14 | `/api/schema/:dataType` 응답 포맷 `{columns,filters}` 고정, schemaProvider/registry/6개 schema 스켈레톤 추가, 최소 스모크 테스트(정상+오류) 추가. |
 | 2026-02-14 | Mongo read-only 보강 실사(sampleDocs=10) 기반으로 6개 dataType의 컬렉션/식별자/타임스탬프/필터 키 1차 확정 및 스키마 파일 반영. |
