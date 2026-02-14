@@ -11,11 +11,11 @@
 |-------|------|------|--------|
 | Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 55% |
 | Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 65% |
-| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 78% |
-| Phase 4 | 프론트엔드 레이아웃 + 필터 | 🟡 진행중 | 94% |
-| Phase 5 | 프론트엔드 결과/다운로드 | 🟡 진행중 | 52% |
+| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 85% |
+| Phase 4 | 프론트엔드 레이아웃 + 필터 | 🟢 완료 | 100% |
+| Phase 5 | 프론트엔드 결과/다운로드 | 🟡 진행중 | 60% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
-| Phase 7 | 관리자 기능 | 🟡 진행중 | 48% |
+| Phase 7 | 관리자 기능 | 🟡 진행중 | 60% |
 | Phase 8 | 통합 테스트 + QA + 배포 | ⬜ 미시작 | 0% |
 
 ---
@@ -74,6 +74,29 @@
 - [x] 최소 스모크 테스트 추가
   - `backend/scripts/smoke-schema-endpoint.ts`
   - 검증 케이스: 정상 1건 + 잘못된 dataType 1건
+
+### Phase 4 (완료)
+
+- [x] React Router 기반 레이아웃 구조 개편
+  - `/` (User Dashboard), `/partner-logs`, `/admin/users`, `/login`
+  - 인증 상태에 따른 `authGuard` 및 리다이렉트 처리
+- [x] 공통 레이아웃 (`DashboardLayout`, `Sidebar`) 적용
+  - 사이드바 메뉴: User Logs, Partner Logs, User Management (Admin only)
+  - 사용자 프로필 및 로그아웃 기능 통합
+- [x] 페이지 및 컴포넌트 모듈화
+  - `pages/`: `UserLogPage`, `PartnerLogPage`, `AdminPage`, `LoginPage`
+  - `components/`: `LogDashboard` (재사용 가능한 대시보드 로직), `Sidebar`
+  - `contexts/`: `AuthContext` (전역 인증 상태 관리)
+- [x] 필터 패널 및 결과 테이블 UI 통합
+  - 데이터 타입별 가이드 텍스트 및 입력 힌트
+  - 반응형 디자인 적용 (Tailwind CSS)
+
+### Phase 7 (진행중)
+
+- [x] 사용자 관리 페이지 구현 (`/admin/users`)
+  - 사용자 목록 조회, 생성, 수정, 삭제(비활성화)
+  - 비밀번호 초기화 및 권한 관리 UI
+- [x] 프론트엔드-백엔드 연동 확인
 
 ---
 

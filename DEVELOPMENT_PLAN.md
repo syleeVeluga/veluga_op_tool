@@ -209,23 +209,23 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] 동시 Export 세마포어 공유
 
 ### 3-7. 인증/인가
-- [ ] `backend/src/routes/auth.ts`
+- [x] `backend/src/routes/auth.ts`
   - `POST /api/auth/login` — 이메일+비밀번호 → JWT 발급
   - JWT payload: `{ userId, email, role, allowedMenus, allowedDataTypes }`
-- [ ] `backend/src/middleware/authz.ts`
+- [x] `backend/src/middleware/authz.ts`
   - `authenticate` — JWT 검증 미들웨어
   - `authorize(roles)` — 역할 기반 접근 제어
   - `checkMenuAccess(menu)` — 메뉴 권한 검사
   - `checkDataTypeAccess(dataType)` — 데이터 유형 접근 검사
-- [ ] `GET /api/me` — 로그인 사용자 정보 반환
+- [x] `GET /api/me` — 로그인 사용자 정보 반환
 
 ### 3-8. 관리자 사용자 관리 — `/api/admin/users`
-- [ ] `backend/src/routes/adminUsers.ts`
+- [x] `backend/src/routes/adminUsers.ts`
   - GET / — 사용자 목록 (Admin only)
   - POST / — 사용자 생성 (email, name?, role, allowedMenus, allowedDataTypes)
   - PUT /:id — 수정
   - DELETE /:id — 비활성화
-- [ ] User 스키마: `{ email, name, passwordHash, role, allowedMenus, allowedDataTypes, status, createdAt, updatedAt }`
+- [x] User 스키마: `{ email, name, passwordHash, role, allowedMenus, allowedDataTypes, status, createdAt, updatedAt }`
 
 ### 3-9. 프리셋 API — `/api/presets`
 - [ ] `backend/src/routes/presets.ts`
@@ -251,53 +251,46 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ## Phase 4: 프론트엔드 — 레이아웃 + 필터 패널 (M4 — 1.5주)
 
 ### 4-1. 레이아웃
-- [ ] `frontend/src/components/Layout/AppLayout.tsx` — 헤더+사이드바+메인
-- [ ] `frontend/src/components/Layout/Header.tsx` — 로고, 사용자 이메일, 로그아웃
-- [ ] `frontend/src/components/Layout/Sidebar.tsx` — 권한 기반 동적 메뉴
-- [ ] 라우트 구성: `/dashboard`, `/json-export`, `/admin/users`, `/login`
+- [x] `frontend/src/layouts/DashboardLayout.tsx` — 헤더+사이드바+메인 구조 적용
+- [x] `frontend/src/components/Sidebar.tsx` — 권한 기반 동적 메뉴 구현
+- [x] 라우트 구성: `/` (dashboard), `/partner-logs`, `/admin/users`, `/login`
 
 ### 4-2. 인증 플로우
-- [ ] `frontend/src/pages/Login.tsx` — 이메일+비밀번호 로그인 폼
-- [ ] `frontend/src/hooks/useAuth.ts` — 로그인/로그아웃, JWT 관리
-- [ ] `frontend/src/components/ProtectedRoute.tsx` — 인증+권한 가드
-- [ ] JWT 저장: localStorage 또는 메모리 (보안 수준에 따라 결정)
+- [x] `frontend/src/pages/LoginPage.tsx` — 이메일+비밀번호 로그인 폼
+- [x] `frontend/src/contexts/AuthContext.tsx` — 전역 인증 상태 및 로그인/로그아웃 관리
+- [x] `frontend/src/App.tsx` — 인증 가드(`authGuard`) 및 라우팅 통합
+- [x] JWT 저장: localStorage (`AUTH_SESSION_STORAGE_KEY`)
 
 ### 4-3. 필터 패널
-- [ ] `frontend/src/components/FilterPanel/FilterPanel.tsx` — 2단 구조 컨테이너
-- [ ] `frontend/src/components/FilterPanel/DataTypeSelect.tsx` — 데이터 유형 드롭다운
-- [ ] `frontend/src/components/FilterPanel/CustomerSearch.tsx` — 자동완성 Combobox (debounce 300ms)
-- [ ] `frontend/src/components/FilterPanel/DateRangePicker.tsx` — 날짜 범위 + 빠른 선택
-- [ ] `frontend/src/components/FilterPanel/DynamicFilters.tsx` — 데이터 유형별 동적 필터
-- [ ] `frontend/src/components/FilterPanel/FilterActions.tsx` — 조회/초기화 버튼
+- [x] `frontend/src/components/LogDashboard.tsx` — 필터 및 결과 뷰 통합 컴포넌트
+- [x] 데이터 타입 선택 및 가이드 UI
+- [x] 고객 검색 자동완성 (debounce 적용)
+- [x] 날짜 범위 및 동적 스키마 필터 생성
+- [x] 파트너 ID 조회 모드 지원
 
 ### 4-4. API 연동 훅
-- [ ] `frontend/src/hooks/useSchema.ts` — schema 조회 (dataType 변경 시)
-- [ ] `frontend/src/hooks/useCustomerSearch.ts` — 고객 검색 자동완성
-- [ ] `frontend/src/hooks/useDataQuery.ts` — 조회 실행 + 페이지네이션
-- [ ] `frontend/src/lib/api.ts` — axios/fetch 래퍼, JWT 자동 첨부, 에러 처리
+- [x] `frontend/src/lib/api.ts` — API 클라이언트 함수 모음
+- [x] `frontend/src/lib/storage.ts` — 로컬 스토리지 상태 저장/복원 로직 분리
 
 ---
 
 ## Phase 5: 프론트엔드 — 결과 테이블 + 다운로드 (M5 — 1주)
 
 ### 5-1. 결과 테이블
-- [ ] `frontend/src/components/DataTable/DataTable.tsx`
-  - shadcn/ui Table 기반, 컬럼 정렬, 페이지네이션 (25/50/100행)
-  - Nested 데이터 플랫트닝 표시
-- [ ] `frontend/src/components/DataTable/SkeletonLoader.tsx` — 로딩 스켈레톤
-- [ ] `frontend/src/components/DataTable/EmptyState.tsx` — 빈 상태 안내
+- [x] `frontend/src/components/LogDashboard.tsx` 내 테이블 구현
+  - Tailwind CSS 기반 스타일링, 동적 컬럼 렌더링
+  - Nested JSON 데이터 표시 지원
+- [ ] `frontend/src/components/ui/` — 공통 UI 컴포넌트 분리 (Skeleton, Table 등)
 
 ### 5-2. 컬럼 선택
-- [ ] `frontend/src/components/DataTable/ColumnSelector.tsx` — 체크박스 컬럼 선택
+- [x] 컬럼 토글 UI 구현 및 로컬 스토리지 저장
 
 ### 5-3. CSV 다운로드
-- [ ] `frontend/src/components/Export/CsvExport.tsx`
-  - 다운로드 버튼 + Truncate 안내 배너
-  - Blob 다운로드 처리, 파일명 자동
+- [x] 클라이언트 측 CSV 생성 및 다운로드 구현 (`buildCsvContent`)
+  - (추후 백엔드 스트리밍 방식으로 고도화 검토)
 
 ### 5-4. JSON 전문 다운로드
-- [ ] `frontend/src/pages/JsonExport.tsx` — 별도 페이지
-  - 동일 필터 UI 재사용
+- [x] JSON 파일 다운로드 기능 구현
   - JSON 다운로드 버튼 + gzip 옵션 토글
 
 ### 5-5. 메인 대시보드 페이지
