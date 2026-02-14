@@ -1,7 +1,16 @@
 import dotenv from "dotenv";
+import path from "node:path";
 import { z } from "zod";
 
+// Load environment variables:
+// 1. DOTENV_CONFIG_PATH if explicitly set
+// 2. backend/.env (default dotenv behavior)
+// 3. project root .env.veluga.mongo (fallback)
 dotenv.config();
+
+if (!process.env.MONGODB_URI) {
+  dotenv.config({ path: path.resolve(__dirname, "../../../.env.veluga.mongo") });
+}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

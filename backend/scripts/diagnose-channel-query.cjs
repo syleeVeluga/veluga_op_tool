@@ -6,7 +6,17 @@
  */
 const fs = require("fs");
 const path = require("path");
+const dns = require("dns");
 const { MongoClient, ObjectId, ReadPreference } = require("mongodb");
+
+// Fix Node.js DNS when servers are localhost-only
+(function () {
+  const servers = dns.getServers();
+  if (servers.every((s) => s === "127.0.0.1" || s === "::1")) {
+    dns.setServers(["8.8.8.8", "8.8.4.4"]);
+    console.log("[dns] Overridden to 8.8.8.8 / 8.8.4.4");
+  }
+})();
 
 function parseDotEnv(text) {
   const out = {};
