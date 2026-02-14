@@ -77,7 +77,9 @@ export function LogDashboard() {
     const fallbackChannel = schema.filters.find((filter) => /channel/i.test(filter.key))
     return fallbackChannel?.key ?? null
   }, [schema])
-  const supportsChannelSelection = Boolean(channelFilterKey)
+  const supportsChannelSelection =
+    Boolean(channelFilterKey) &&
+    (dataType === 'conversations' || dataType === 'api_usage_logs')
   const selectedChannel = channelFilterKey ? asStringValue(filterInputs[channelFilterKey]) : ''
 
   const availableColumns = useMemo(() => {
