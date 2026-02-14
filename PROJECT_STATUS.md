@@ -142,6 +142,15 @@
 - 확인 로그: `resource.labels.revision_name=log-csv-api-00004-4xd` 에서 startup probe 실패 확인
 - 후속 조치: 다음 리허설은 `-SetEnvVars`로 `MONGODB_URI` 포함해 재실행
 
+##### 리허설 재검증 (MONGODB_URI 고정 전제)
+- [x] 정상 이미지 기반 `--no-traffic` 리비전 생성/기동 확인
+  - [x] Revision: `log-csv-api-reh203921` (Ready=True)
+- [x] 운영 트래픽 안정성 확인
+  - [x] `log-csv-api-00003-kb6` 100% 유지
+- [x] 운영 헬스 엔드포인트 확인
+  - [x] `/health` 200
+  - [x] `/api/health` 200
+
 ### Phase 1 잔여
 - [ ] `shared/types/` — 공유 TypeScript 타입 정의
 - [ ] `frontend/` — React 프로젝트 초기화 (Vite + Tailwind + shadcn/ui)
@@ -361,4 +370,5 @@ user_log_dashboard/
 | 2026-02-14 | `POST /api/data/summary/by-data-type` 추가(공통 totalCount + dataType별 핵심 메트릭) 및 `backend/scripts/smoke-data-type-summary-endpoint.ts` 추가. |
 | 2026-02-14 | Cloud Run 배포 리허설(runbook) 항목 추가: Revision 캡처/배포/헬스체크/롤백 검증/결과 기록. |
 | 2026-02-14 | Cloud Run 리허설 1회 실행: 신규 Revision(`log-csv-api-00004-4xd`) 기동 실패(`MONGODB_URI` 누락), 트래픽은 기존 안정 Revision(`log-csv-api-00003-kb6`) 100% 유지 확인. |
+| 2026-02-14 | `MONGODB_URI` 고정 전제 재검증: `--no-traffic` 리허설 Revision(`log-csv-api-reh203921`) Ready 확인, 운영 트래픽(`log-csv-api-00003-kb6` 100%) 및 `/health`,`/api/health` 정상 확인. |
 | 2026-02-14 | 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 보류하고, `dateRange` 직접 설정을 우선 정책으로 확정. |
