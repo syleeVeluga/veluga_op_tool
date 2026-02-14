@@ -81,9 +81,9 @@
 ### Phase 8 (배포 전 체크리스트 — Cloud Run)
 
 #### 0) 리허설 실행 전제
-- [ ] `gcloud` CLI 설치 확인 (`gcloud --version`)
-- [ ] `gcloud` 인증 확인 (`gcloud auth list`)
-- [ ] 대상 프로젝트 확인 (`gcloud config get-value project`)
+- [x] `gcloud` CLI 설치 확인 (`gcloud --version`)
+- [x] `gcloud` 인증 확인 (`gcloud auth list`)
+- [x] 대상 프로젝트 확인 (`gcloud config get-value project`)
 
 #### 1) 환경변수 점검 (Cloud Run 반영값)
 - [ ] **필수** `MONGODB_URI` 설정 확인 (미설정 시 서버 부팅 실패)
@@ -126,14 +126,21 @@
 - [ ] 롤백 포인트(이전 Revision/이미지 태그) 확보 완료
 
 #### 6) Cloud Run 리허설 1회 (2순위)
-- [ ] 배포 전 현재 Revision 캡처
-  - [ ] `gcloud run revisions list --service log-csv-api --region asia-northeast3 --limit 1 --sort-by "~metadata.creationTimestamp"`
-- [ ] 리허설 배포 실행 (`-SetEnvVars` 포함)
-  - [ ] `./scripts/deploy-cloudrun.ps1 -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"`
+- [x] 배포 전 현재 Revision 캡처
+  - [x] `gcloud run revisions list --service log-csv-api --region asia-northeast3 --limit 1 --sort-by "~metadata.creationTimestamp"`
+- [x] 리허설 배포 실행
+  - [x] `./scripts/deploy-cloudrun.ps1`
 - [ ] 자동 헬스체크 PASS 확인 (`/health`, `/api/health`, `/api/schema/api_usage_logs`)
-- [ ] (선택) 롤백 동작 리허설
-  - [ ] `gcloud run services update-traffic log-csv-api --region asia-northeast3 --to-revisions <PREV_REVISION>=100`
-- [ ] 리허설 결과 기록 (성공/실패, 소요시간, 이슈)
+- [x] 롤백/복구 상태 확인
+  - [x] 신규 Revision `log-csv-api-00004-4xd` 생성 확인
+  - [x] 서비스 트래픽이 기존 안정 Revision `log-csv-api-00003-kb6` 100% 유지 확인
+- [x] 리허설 결과 기록 (성공/실패, 소요시간, 이슈)
+
+##### 리허설 결과 (2026-02-14)
+- 결과: **실패(신규 Revision Ready 실패) / 서비스 가용성 유지(기존 Revision 100%)**
+- 원인: 신규 Revision에서 `MONGODB_URI is required to connect to MongoDB`로 부팅 실패
+- 확인 로그: `resource.labels.revision_name=log-csv-api-00004-4xd` 에서 startup probe 실패 확인
+- 후속 조치: 다음 리허설은 `-SetEnvVars`로 `MONGODB_URI` 포함해 재실행
 
 ### Phase 1 잔여
 - [ ] `shared/types/` — 공유 TypeScript 타입 정의
@@ -353,4 +360,5 @@ user_log_dashboard/
 | 2026-02-14 | `POST /api/data/summary/period` 추가(월/분기/반기 집계, 크레딧/토큰/대화지표 포함) 및 `backend/scripts/smoke-period-summary-endpoint.ts` 추가. |
 | 2026-02-14 | `POST /api/data/summary/by-data-type` 추가(공통 totalCount + dataType별 핵심 메트릭) 및 `backend/scripts/smoke-data-type-summary-endpoint.ts` 추가. |
 | 2026-02-14 | Cloud Run 배포 리허설(runbook) 항목 추가: Revision 캡처/배포/헬스체크/롤백 검증/결과 기록. |
+| 2026-02-14 | Cloud Run 리허설 1회 실행: 신규 Revision(`log-csv-api-00004-4xd`) 기동 실패(`MONGODB_URI` 누락), 트래픽은 기존 안정 Revision(`log-csv-api-00003-kb6`) 100% 유지 확인. |
 | 2026-02-14 | 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 보류하고, `dateRange` 직접 설정을 우선 정책으로 확정. |
