@@ -98,12 +98,14 @@ export interface DashboardUser {
 function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
   const base = (rawBaseUrl ?? 'http://localhost:8080/api').trim()
   const withoutTrailingSlash = base.replace(/\/+$/, '')
+  const withoutAuthSuffix = withoutTrailingSlash.replace(/\/(api\/)?auth(?:\/.*)?$/i, '')
+  const normalizedRoot = withoutAuthSuffix.replace(/\/+$/, '')
 
-  if (/\/api$/i.test(withoutTrailingSlash)) {
-    return withoutTrailingSlash
+  if (/\/api$/i.test(normalizedRoot)) {
+    return normalizedRoot
   }
 
-  return `${withoutTrailingSlash}/api`
+  return `${normalizedRoot}/api`
 }
 
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
