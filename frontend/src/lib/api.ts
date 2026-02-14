@@ -56,6 +56,16 @@ export interface QueryResponse {
   }
 }
 
+export interface CustomerSearchItem {
+  id: string
+  name?: string
+  email?: string
+}
+
+export interface CustomerSearchResponse {
+  customers: CustomerSearchItem[]
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -86,4 +96,9 @@ export function postDataQuery(payload: QueryRequestPayload): Promise<QueryRespon
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export function searchCustomers(query: string): Promise<CustomerSearchResponse> {
+  const encoded = encodeURIComponent(query)
+  return requestJson<CustomerSearchResponse>(`/customers/search?q=${encoded}`)
 }

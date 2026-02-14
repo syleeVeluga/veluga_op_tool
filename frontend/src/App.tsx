@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  type CustomerSearchItem,
   type DataType,
   type DataTypeSchema,
   type QueryFilterValue,
   fetchSchema,
   postDataQuery,
+  searchCustomers,
 } from './lib/api'
 
 const DATA_TYPES: DataType[] = [
@@ -76,6 +78,10 @@ function buildFilters(schema: DataTypeSchema | null, values: FilterInputState): 
 function App() {
   const [dataType, setDataType] = useState<DataType>('api_usage_logs')
   const [customerId, setCustomerId] = useState('')
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
+  const [customerLoading, setCustomerLoading] = useState(false)
+  const [customerError, setCustomerError] = useState<string | null>(null)
   const [startAt, setStartAt] = useState(() => {
     const now = new Date()
     const before = new Date(now)
@@ -131,6 +137,46 @@ function App() {
       active = false
     }
   }, [dataType])
+
+  useEffect(() => {
+    const keyword = customerQuery.trim()
+
+    if (keyword.length < 2) {
+      setCustomerOptions([])
+      setCustomerLoading(false)
+      setCustomerError(null)
+      return
+    }
+
+    let active = true
+    setCustomerLoading(true)
+    setCustomerError(null)
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchCustomers(keyword)
+        if (!active) {
+          return
+        }
+        setCustomerOptions(result.customers)
+      } catch (error) {
+        if (!active) {
+          return
+        }
+        setCustomerOptions([])
+        setCustomerError(error instanceof Error ? error.message : '고객 검색 실패')
+      } finally {
+        if (active) {
+          setCustomerLoading(false)
+        }
+      }
+    }, 300)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [customerQuery])
 
   const resultColumns = useMemo(() => {
     if (rows.length > 0) {
@@ -209,6 +255,42 @@ function App() {
                 placeholder="customerId 입력"
                 required
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
+              <input
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                value={customerQuery}
+                onChange={(e) => setCustomerQuery(e.target.value)}
+                placeholder="이름/이메일/ID 2글자 이상"
+              />
+              <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
+              {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
+              {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
+              {!customerLoading && customerOptions.length > 0 && (
+                <ul className="mt-2 max-h-40 overflow-auto rounded-md border bg-white">
+                  {customerOptions.map((customer) => (
+                    <li key={customer.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100"
+                        onClick={() => {
+                          setCustomerId(customer.id)
+                          setCustomerQuery('')
+                          setCustomerOptions([])
+                        }}
+                      >
+                        <div className="font-medium text-slate-800">{customer.id}</div>
+                        <div className="text-slate-500">
+                          {customer.name || '-'}
+                          {customer.email ? ` · ${customer.email}` : ''}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </label>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
