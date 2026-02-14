@@ -7,6 +7,7 @@ import { env } from "../config/env";
 import { validateDataQueryRequest } from "../middleware/validators";
 import { validateConversationBatchRequest } from "../middleware/validators";
 import { validatePeriodSummaryRequest } from "../middleware/validators";
+import { validateDataTypeSummaryRequest } from "../middleware/validators";
 import {
   buildAggregationPipeline,
   buildCountPipeline,
@@ -22,6 +23,10 @@ import {
   getPeriodSummary,
   type PeriodSummaryRequest,
 } from "../services/periodSummary";
+import {
+  getDataTypeSummary,
+  type DataTypeSummaryRequest,
+} from "../services/dataTypeSummary";
 
 const dataRouter = Router();
 
@@ -99,6 +104,25 @@ dataRouter.post(
       res.status(500).json({
         error: "summary_failed",
         message: "Failed to build period summary",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+  }
+);
+
+dataRouter.post(
+  "/data/summary/by-data-type",
+  validateDataTypeSummaryRequest,
+  async (_req, res) => {
+    const request = res.locals.dataTypeSummaryRequest as DataTypeSummaryRequest;
+
+    try {
+      const summary = await getDataTypeSummary(request);
+      res.status(200).json(summary);
+    } catch (error) {
+      res.status(500).json({
+        error: "summary_failed",
+        message: "Failed to build data type summary",
         detail: error instanceof Error ? error.message : "unknown error",
       });
     }

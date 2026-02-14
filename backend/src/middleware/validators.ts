@@ -79,6 +79,17 @@ const periodSummaryRequestSchema = z
     }
   });
 
+const dataTypeSummaryRequestSchema = z.object({
+  dataType: z.string().refine((value) => isDataType(value), {
+    message: "Unsupported dataType",
+  }),
+  targetId: z.string().trim().min(1),
+  dateRange: z.object({
+    start: z.string().min(1),
+    end: z.string().min(1),
+  }),
+});
+
 function hasUnsafeDollarKey(value: unknown): boolean {
   if (!value || typeof value !== "object") {
     return false;
@@ -191,5 +202,36 @@ export function validatePeriodSummaryRequest(
   }
 
   res.locals.periodSummaryRequest = parsed.data;
+  next();
+}
+
+export function validateDataTypeSummaryRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (hasUnsafeDollarKey(req.body)) {
+    res.status(400).json({
+      error: "invalid_request",
+      message: "Request contains disallowed key starting with '$'",
+    });
+    return;
+  }
+
+  const parsed = dataTypeSummaryRequestSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "invalid_request",
+      message: "Invalid data type summary request",
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+    return;
+  }
+
+  res.locals.dataTypeSummaryRequest = parsed.data;
   next();
 }

@@ -14,7 +14,8 @@
     "test:smoke:data-query": "tsx scripts/smoke-data-query-endpoint.ts",
     "test:smoke:customer-search": "tsx scripts/smoke-customer-search-endpoint.ts",
     "test:smoke:conversation-batch": "tsx scripts/smoke-conversation-batch-endpoint.ts",
-    "test:smoke:period-summary": "tsx scripts/smoke-period-summary-endpoint.ts"
+    "test:smoke:period-summary": "tsx scripts/smoke-period-summary-endpoint.ts",
+    "test:smoke:data-type-summary": "tsx scripts/smoke-data-type-summary-endpoint.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

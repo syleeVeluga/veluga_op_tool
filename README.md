@@ -7,7 +7,7 @@
 - Infra: Docker + Google Cloud Run
 - DB: MongoDB Atlas (Read-Only 접근 전제)
 
-현재 저장소는 **백엔드 스캐폴딩 + Mongo 연결 + schema 조회 API 뼈대**까지 구현된 상태입니다.
+현재 저장소는 **백엔드 조회/집계 API 1차 구현 + Cloud Run 배포 자동 검증/롤백 스크립트**까지 반영된 상태입니다.
 
 ## 1) 프로젝트 목적
 
@@ -34,17 +34,26 @@
   - 오류 응답(잘못된 dataType): `400 { error, message, supportedDataTypes }`
 - dataType 스키마 레지스트리/프로바이더 뼈대
   - `conversations`, `api_usage_logs`, `event_logs`, `error_logs`, `billing_logs`, `user_activities`
+- 조회/집계 API
+  - `POST /api/data/query`
+  - `POST /api/data/query-batch/conversations`
+  - `POST /api/data/summary/period`
+  - `POST /api/data/summary/by-data-type`
+  - `GET /api/customers/search?q=`
 - Docker 멀티스테이지 빌드 (`backend/Dockerfile`)
 - Cloud Run 배포 스크립트 (`scripts/deploy-cloudrun.ps1`)
+  - 환경변수 주입(`-SetEnvVars`)
+  - 배포 후 헬스체크 자동 검증
+  - 실패 시 이전 Revision 자동 롤백
 - GitHub Actions 배포 워크플로우 (`.github/workflows/deploy-backend-cloudrun.yml`)
 - 최소 스모크 테스트
   - `backend/scripts/smoke-schema-endpoint.ts`
-  - 정상/잘못된 dataType 2케이스 검증
+  - `backend/scripts/smoke-data-type-summary-endpoint.ts`
+  - 각 API 입력 검증 경로 중심 스모크 검증
 
 미구현(다음 단계):
 
 - 인증/인가(JWT, RBAC)
-- MongoDB 연동 및 쿼리 빌더
 - CSV/JSON Export 엔진
 - 프론트엔드 앱 전체
 
@@ -139,11 +148,33 @@ docker build -t log-csv-api:local .
 - Service: `log-csv-api`
 - Image: `log-csv-api`
 
+추가 파라미터:
+
+- `-SetEnvVars "KEY=VALUE","KEY2=VALUE2"` : Cloud Run 환경변수 반영
+- `-SkipHealthCheck` : 배포 후 헬스체크(`/health`, `/api/health`, `/api/schema/api_usage_logs`) 생략
+- `-DisableAutoRollback` : 헬스체크 실패 시 자동 롤백 비활성화
+- `-HealthCheckMaxAttempts <N>` : 헬스체크 최대 재시도 횟수 (기본 12)
+- `-HealthCheckIntervalSec <N>` : 헬스체크 재시도 간격(초, 기본 5)
+
 필요 시 오버라이드:
 
 ```powershell
 .\scripts\deploy-cloudrun.ps1 -ProjectId "<PROJECT_ID>" -Region "asia-northeast3"
 ```
+
+운영 배포 예시 (환경변수 포함):
+
+```powershell
+.\scripts\deploy-cloudrun.ps1 `
+  -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"
+```
+
+자동 롤백까지 포함한 기본 흐름:
+
+1. 배포 전 현재 최신 Revision 이름 자동 캡처
+2. 새 이미지 빌드/푸시 및 Cloud Run 배포
+3. 서비스 URL 기준 헬스체크 3개 엔드포인트 검증
+4. 실패 시 이전 Revision으로 트래픽 즉시 롤백
 
 ### CI/CD 배포
 

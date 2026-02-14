@@ -35,6 +35,9 @@
 - [x] Cloud Run 수동 배포 스크립트 (`scripts/deploy-cloudrun.ps1`)
   - Artifact Registry: `asia-northeast3-docker.pkg.dev/veluga-ops-tool/veluga-backend/log-csv-api`
   - Cloud Run 설정: min 0 / max 3, concurrency 30, timeout 300s, memory 512Mi
+  - 배포 후 헬스체크(`/health`, `/api/health`, `/api/schema/api_usage_logs`) 자동 검증
+  - 실패 시 이전 안정 Revision으로 트래픽 자동 롤백 지원
+  - `-SetEnvVars` 파라미터로 Cloud Run 환경변수 반영 지원
 - [x] GitHub Actions CI/CD (`.github/workflows/deploy-backend-cloudrun.yml`)
   - main 브랜치 backend/** 변경 시 자동 빌드+배포
 - [x] MongoDB Atlas 접속 정보 (`.env.veluga.mongo`)
@@ -74,6 +77,63 @@
 ---
 
 ## 미완료 항목 (다음 작업)
+
+### Phase 8 (배포 전 체크리스트 — Cloud Run)
+
+#### 0) 리허설 실행 전제
+- [ ] `gcloud` CLI 설치 확인 (`gcloud --version`)
+- [ ] `gcloud` 인증 확인 (`gcloud auth list`)
+- [ ] 대상 프로젝트 확인 (`gcloud config get-value project`)
+
+#### 1) 환경변수 점검 (Cloud Run 반영값)
+- [ ] **필수** `MONGODB_URI` 설정 확인 (미설정 시 서버 부팅 실패)
+- [ ] `NODE_ENV=production` 설정 확인
+- [ ] `PORT=8080` 유지 (Cloud Run 컨테이너 포트와 일치)
+- [ ] `MONGODB_DB_NAME` 확인 (기본값 `logdb`, 필요 시 오버라이드)
+- [ ] `OPS_TOOL_DB_NAME` 확인 (기본값 `ops_tool`)
+- [ ] `CORS_ORIGIN` 확인 (`*` 또는 허용 도메인 CSV)
+- [ ] `QUERY_TIMEOUT_MS`, `MAX_EXPORT_ROWS` 운영 가드레일 값 확인
+- [ ] (선택) `JWT_SECRET`/`JWT_EXPIRES_IN` 값 점검 (인증 경로 확장 대비)
+
+#### 2) 배포 전 헬스체크 기준
+- [ ] 로컬/스테이징 컨테이너 기준 `GET /health` 응답 `200` 확인
+- [ ] Mongo ping 포함 응답 확인 (`status: ok`, `mongo.ok: true`)
+- [ ] `GET /api/health` 응답에서 `uriConfigured: true` 확인
+- [ ] 배포 후 서비스 URL 기준 아래 엔드포인트 재확인
+  - [ ] `/health`
+  - [ ] `/api/health`
+  - [ ] `/api/schema/api_usage_logs` (기본 API smoke)
+
+#### 3) 배포/검증 절차
+- [ ] 새 이미지 태그(타임스탬프) 기록
+- [ ] `scripts/deploy-cloudrun.ps1`로 배포 수행
+- [ ] 신규 Revision Ready 상태 확인
+- [ ] 응답 지연/오류율 간단 점검 (5xx, timeout)
+- [ ] 장애 없을 때만 트래픽 100% 유지
+
+#### 4) 롤백 포인트 (장애 대응)
+- [ ] 배포 직전 **이전 안정 Revision 이름** 메모
+- [ ] 배포 직전 **이전 이미지 태그** 메모
+- [ ] 장애 시 즉시 이전 Revision으로 트래픽 복구
+  - 예시: `gcloud run services update-traffic log-csv-api --region asia-northeast3 --to-revisions <PREV_REVISION>=100`
+- [ ] 복구 후 `/health`, `/api/health` 재검증
+- [ ] 롤백 사유/시각/영향 범위를 `PROJECT_STATUS.md`에 기록
+
+#### 5) 배포 승인 게이트 (Go/No-Go)
+- [ ] `health`/`api/health`/기본 schema API 모두 정상
+- [ ] Mongo 연결 상태 정상 (`connected` 또는 ping 성공)
+- [ ] 치명 오류(5xx 연속, 부팅 실패, 타임아웃 급증) 없음
+- [ ] 롤백 포인트(이전 Revision/이미지 태그) 확보 완료
+
+#### 6) Cloud Run 리허설 1회 (2순위)
+- [ ] 배포 전 현재 Revision 캡처
+  - [ ] `gcloud run revisions list --service log-csv-api --region asia-northeast3 --limit 1 --sort-by "~metadata.creationTimestamp"`
+- [ ] 리허설 배포 실행 (`-SetEnvVars` 포함)
+  - [ ] `./scripts/deploy-cloudrun.ps1 -SetEnvVars "NODE_ENV=production","MONGODB_URI=<SECRET>","MONGODB_DB_NAME=logdb","OPS_TOOL_DB_NAME=ops_tool","CORS_ORIGIN=*"`
+- [ ] 자동 헬스체크 PASS 확인 (`/health`, `/api/health`, `/api/schema/api_usage_logs`)
+- [ ] (선택) 롤백 동작 리허설
+  - [ ] `gcloud run services update-traffic log-csv-api --region asia-northeast3 --to-revisions <PREV_REVISION>=100`
+- [ ] 리허설 결과 기록 (성공/실패, 소요시간, 이슈)
 
 ### Phase 1 잔여
 - [ ] `shared/types/` — 공유 TypeScript 타입 정의
@@ -122,7 +182,14 @@
   - [x] 기간 월 단위 윈도우 분할 처리(6개월 요청 대비)
   - [x] 최대 500 채널 제한 + rowLimit 가드레일
   - [x] 처리 메타 반환(`processedChunks`, `elapsedMs`)
-- [ ] dataType별 집계 응답(예: 대화 건수, 사용량 합계) API 설계
+  - [x] dataType별 집계 응답 API 구현
+    - [x] `POST /api/data/summary/by-data-type`
+    - [x] 공통: `totalCount`
+    - [x] `conversations`: `conversationCount`, `activeChannels`, `activeCreators`
+    - [x] `api_usage_logs`: `creditsUsed`, `inputTokens`, `outputTokens`, `totalTokens`, `avgBalance`
+    - [x] `billing_logs`: `expiredCount`
+    - [x] `user_activities`: `publicCount`, `privateCount`
+    - [x] `error_logs`: `uniqueErrorCodes`
 - [x] 기간 집계 API 구현 (`credits/tokens` 포함)
   - [x] `POST /api/data/summary/period`
   - [x] `groupBy`: `month`, `quarter`, `halfyear`
@@ -284,4 +351,6 @@ user_log_dashboard/
 | 2026-02-14 | `POST /api/data/query`에 `includeTotal` 옵션 추가, `total` 응답 지원(기간별 요청 대비). |
 | 2026-02-14 | `POST /api/data/query-batch/conversations` 추가(최대 500채널, 월단위 윈도우+채널 청크 배치 처리) 및 `backend/scripts/smoke-conversation-batch-endpoint.ts` 추가. |
 | 2026-02-14 | `POST /api/data/summary/period` 추가(월/분기/반기 집계, 크레딧/토큰/대화지표 포함) 및 `backend/scripts/smoke-period-summary-endpoint.ts` 추가. |
+| 2026-02-14 | `POST /api/data/summary/by-data-type` 추가(공통 totalCount + dataType별 핵심 메트릭) 및 `backend/scripts/smoke-data-type-summary-endpoint.ts` 추가. |
+| 2026-02-14 | Cloud Run 배포 리허설(runbook) 항목 추가: Revision 캡처/배포/헬스체크/롤백 검증/결과 기록. |
 | 2026-02-14 | 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 보류하고, `dateRange` 직접 설정을 우선 정책으로 확정. |
