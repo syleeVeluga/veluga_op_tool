@@ -49,6 +49,12 @@
   - `backend/.env.example`
   - `backend/src/config/env.ts` (Zod 기반 타입 검증)
 - [x] 서버에 env 로더 연동 (`backend/src/index.ts`)
+- [x] Node.js DNS 자동 보정 (`backend/src/index.ts`)
+  - c-ares DNS 서버가 localhost(127.0.0.1) 전용일 때 Google DNS(8.8.8.8/8.8.4.4) 자동 오버라이드
+  - `mongodb+srv://` SRV 레코드 조회 실패 방지
+- [x] dotenv 폴백 로딩 (`backend/src/config/env.ts`)
+  - `backend/.env` 미존재 시 프로젝트 루트 `.env.veluga.mongo` 자동 로딩
+  - `MONGODB_URI` 유무 기준 2단계 로딩 전략
 
 ### Phase 3 (진행중)
 
@@ -78,14 +84,17 @@
 ### Phase 4 (완료)
 
 - [x] React Router 기반 레이아웃 구조 개편
-  - `/` (User Dashboard), `/partner-logs`, `/admin/users`, `/login`
+  - `/` (User Dashboard), `/admin/users`, `/login`
   - 인증 상태에 따른 `authGuard` 및 리다이렉트 처리
+  - ~~`/partner-logs` 라우트 제거 (2026-02-15)~~
 - [x] 공통 레이아웃 (`DashboardLayout`, `Sidebar`) 적용
-  - 사이드바 메뉴: User Logs, Partner Logs, User Management (Admin only)
+  - 사이드바 메뉴: User Logs, User Management (Admin only)
+  - ~~Partner Logs 사이드바 메뉴 제거 (2026-02-15)~~
   - 사용자 프로필 및 로그아웃 기능 통합
 - [x] 페이지 및 컴포넌트 모듈화
-  - `pages/`: `UserLogPage`, `PartnerLogPage`, `AdminPage`, `LoginPage`
-  - `components/`: `LogDashboard` (재사용 가능한 대시보드 로직), `Sidebar`
+  - `pages/`: `UserLogPage`, `AdminPage`, `LoginPage`
+  - ~~`PartnerLogPage.tsx` 삭제 (2026-02-15)~~
+  - `components/`: `LogDashboard` (단일 모드 대시보드), `Sidebar`
   - `contexts/`: `AuthContext` (전역 인증 상태 관리)
 - [x] 필터 패널 및 결과 테이블 UI 통합
   - 데이터 타입별 가이드 텍스트 및 입력 힌트
@@ -223,11 +232,12 @@
   - [x] Data Type별 의미/식별자 키 안내 카드 추가
   - [x] Customer ID 입력 힌트/예시를 Data Type별로 동적 표시
   - [x] 사용자 검색 가능 Data Type에서만 자동완성 노출 (이외 직접 입력 안내)
-- [x] Partner ID 기반 다중 사용자 조회 지원 (`users.members`)
-  - [x] `GET /api/customers/by-partner?partnerId=` 추가 (`backend/src/routes/data.ts`)
-  - [x] partner ID → 사용자 ID 배열 해석 서비스 추가 (`backend/src/services/customerSearch.ts`)
-  - [x] `POST /api/data/query`가 `customerId` 또는 `customerIds`를 허용하도록 확장
-  - [x] 프론트 필터 패널에 Partner ID 입력/해석 UX 및 멤버수 표시 추가
+- [x] ~~Partner ID 기반 다중 사용자 조회 지원 — 프론트엔드 UI 제거 (2026-02-15)~~
+  - [x] `GET /api/customers/by-partner?partnerId=` 백엔드 API 유지 (향후 정리 예정)
+  - [x] `POST /api/data/query`의 `customerIds` 파라미터 백엔드 유지
+  - [x] **프론트 Partner ID 입력/해석 UX 전체 제거**
+  - [x] `LogDashboard` 컴포넌트에서 `mode` prop 및 Partner 상태 제거
+  - [x] `constants.ts`에서 `supportsPartnerLookup` 필드 제거
 
 ### Phase 7 (착수)
 
@@ -372,6 +382,7 @@ user_log_dashboard/
 │   ├── package-lock.json
 │   ├── tsconfig.json
 │   ├── scripts/
+│   │   ├── diagnose-channel-query.cjs
 │   │   ├── profile-mongo-readonly.cjs
 │   │   └── smoke-schema-endpoint.ts
 │   └── src/
@@ -494,3 +505,6 @@ user_log_dashboard/
 | 2026-02-15 | Phase 7 잔여 범위 조정: 감사 로그(Audit Log)는 후순위로 이관하고, 현재 진행 범위를 권한 세분화로 한정. |
 | 2026-02-15 | Phase 7 권한 세분화 실행 계획 구체화: 백엔드 권한 매트릭스/API 액션 권한/프론트 노출 제어/403 UX/스모크 테스트 항목으로 분해. |
 | 2026-02-15 | 로그인 장애 대응: Cloud Run auth 경로/`JWT_SECRET` 설정 점검 후 로그인 복구, 관리자 계정 정리로 `sylee@veluga.io` 단일 계정 유지 및 `SUPER_ADMIN_EMAILS`를 단일 값으로 고정. |
+| 2026-02-15 | Partner ID UI 전체 제거: `PartnerLogPage.tsx` 삭제, `LogDashboard`에서 mode/partner 상태 제거, `Sidebar`에서 Partner 메뉴 제거, `App.tsx`에서 `/partner-logs` 라우트 제거, `constants.ts`에서 `supportsPartnerLookup` 제거. |
+| 2026-02-15 | Node.js DNS 자동 보정 추가: `dns.getServers()`가 localhost 전용일 때 Google DNS로 오버라이드하여 `mongodb+srv://` SRV 조회 실패 해결. 채널 조회(customer `65965c32ee6de0ec4c44d183`) 204건/7채널 정상 확인. |
+| 2026-02-15 | dotenv 폴백 로딩 추가: `backend/.env` 부재 시 프로젝트 루트 `.env.veluga.mongo`에서 자동 로딩. 채널 쿼리 디버깅 로그 추가(`data.ts`, `LogDashboard.tsx`). |
