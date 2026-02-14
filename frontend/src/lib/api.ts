@@ -74,7 +74,18 @@ export interface PartnerCustomerResolveResponse {
   customers: CustomerSearchItem[]
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
+function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
+  const base = (rawBaseUrl ?? 'http://localhost:8080/api').trim()
+  const withoutTrailingSlash = base.replace(/\/+$/, '')
+
+  if (/\/api$/i.test(withoutTrailingSlash)) {
+    return withoutTrailingSlash
+  }
+
+  return `${withoutTrailingSlash}/api`
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
