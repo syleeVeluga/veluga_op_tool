@@ -81,7 +81,7 @@
 | GET | `/api/health` | API 상태 | - | - |
 | POST | `/api/auth/login` | 로그인, JWT 발급 | - | - |
 | GET | `/api/me` | 내 정보 조회 | JWT | all |
-| GET | `/api/schema/:dataType` | 스키마 조회 | JWT | dataType 접근 |
+| GET | `/api/schema/:dataType` | 스키마 조회 | JWT (Phase 3-7 예정) | dataType 접근 |
 | GET | `/api/customers/search?q=` | 고객 검색 | JWT | all |
 | POST | `/api/data/query` | 데이터 조회 | JWT | dataType 접근 |
 | POST | `/api/data/export-csv` | CSV 다운로드 | JWT | dataType 접근 |
@@ -94,6 +94,15 @@
 | POST | `/api/admin/users` | 사용자 생성 | JWT | admin |
 | PUT | `/api/admin/users/:id` | 사용자 수정 | JWT | admin |
 | DELETE | `/api/admin/users/:id` | 사용자 비활성화 | JWT | admin |
+
+---
+
+## 4.1 현재 구현 스냅샷 (2026-02-14)
+
+- `GET /api/schema/:dataType` 구현 완료 (스켈레톤)
+- 응답 포맷: `{ columns: [{ key, label, type }], filters: [{ key, label, type, options? }] }`
+- 잘못된 `dataType` 처리: `400 { error, message, supportedDataTypes }`
+- 최소 스모크 테스트: `backend/scripts/smoke-schema-endpoint.ts` (정상/오류 2케이스)
 
 ---
 

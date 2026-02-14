@@ -68,10 +68,13 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 
 ### 1-5. 백엔드 디렉토리 구조 확장
 - [ ] `backend/src/routes/` — auth.ts, data.ts, adminUsers.ts, presets.ts
+  - [x] `data.ts` (schema 조회 라우트 스켈레톤)
 - [ ] `backend/src/services/` — queryBuilder.ts, csvGenerator.ts, jsonExporter.ts, schemaProvider.ts
+  - [x] `schemaProvider.ts` (columns/filters 반환)
 - [ ] `backend/src/middleware/` — authz.ts, auditLogger.ts, errorHandler.ts
 - [ ] `backend/src/models/` — User, Preset, AuditLog 타입/헬퍼
 - [ ] `backend/src/config/` — env.ts, database.ts, schema/
+  - [x] `schema/` 6개 dataType 스켈레톤 + registry 추가
 
 ---
 
@@ -104,20 +107,20 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 > 주의: 매핑 확정 전 `customerId`에 해당하는 실제 식별자 키(`user`, `creator`, `channel`, `channel_id` 등)를 컬렉션별로 추가 검증해야 함.
 
 ### 2-1. 데이터 유형별 스키마 설정 파일
-- [ ] `backend/src/config/schema/conversations.ts`
+- [x] `backend/src/config/schema/conversations.ts` (스켈레톤)
   - collection: `conversations`, customerField: `userId`, timestampField: `timestamp`
   - 필터: 모델명(select), 토큰사용량(range)
-- [ ] `backend/src/config/schema/api_usage_logs.ts`
+- [x] `backend/src/config/schema/api_usage_logs.ts` (스켈레톤)
   - 필터: endpoint(search), method(select), statusCode(select)
-- [ ] `backend/src/config/schema/event_logs.ts`
+- [x] `backend/src/config/schema/event_logs.ts` (스켈레톤)
   - 필터: eventType(select)
-- [ ] `backend/src/config/schema/error_logs.ts`
+- [x] `backend/src/config/schema/error_logs.ts` (스켈레톤)
   - 필터: errorCode(search), severity(select: info/warn/error/critical)
-- [ ] `backend/src/config/schema/billing_logs.ts`
+- [x] `backend/src/config/schema/billing_logs.ts` (스켈레톤)
   - 필터: plan(select), status(select)
-- [ ] `backend/src/config/schema/user_activities.ts`
+- [x] `backend/src/config/schema/user_activities.ts` (스켈레톤)
   - 필터: action(select), sessionId(search)
-- [ ] `backend/src/config/schema/index.ts` — dataType → schema 레지스트리 맵
+- [x] `backend/src/config/schema/index.ts` — dataType → schema 레지스트리 맵
 
 ### 2-2. 쿼리 빌더 엔진 (`backend/src/services/queryBuilder.ts`)
 - [ ] `buildAggregationPipeline(request: QueryRequest): Document[]`
@@ -150,9 +153,10 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] 연결 상태 확인 함수
 
 ### 3-2. 스키마 조회 API — `GET /api/schema/:dataType`
-- [ ] `backend/src/routes/data.ts` 라우트
-- [ ] `backend/src/services/schemaProvider.ts` — 레지스트리에서 columns/filters 반환
-- [ ] 잘못된 dataType → 400 에러
+- [x] `backend/src/routes/data.ts` 라우트
+- [x] `backend/src/services/schemaProvider.ts` — 레지스트리에서 columns/filters 반환
+- [x] 잘못된 dataType → 400 에러
+- [x] 최소 스모크 테스트 추가 (`backend/scripts/smoke-schema-endpoint.ts`)
 
 ### 3-3. 고객 검색 API — `GET /api/customers/search?q=`
 - [ ] 최소 2글자 입력 필요

@@ -1,7 +1,7 @@
 # 프로젝트 진행 상황 — 고객 로그 데이터 추출 대시보드
 
 > 최종 갱신: 2026-02-14
-> 전체 진행률: ~20%
+> 전체 진행률: ~25%
 
 ---
 
@@ -10,8 +10,8 @@
 | Phase | 설명 | 상태 | 진행률 |
 |-------|------|------|--------|
 | Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 55% |
-| Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 20% |
-| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 15% |
+| Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 40% |
+| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 28% |
 | Phase 4 | 프론트엔드 레이아웃 + 필터 | ⬜ 미시작 | 0% |
 | Phase 5 | 프론트엔드 결과/다운로드 | ⬜ 미시작 | 0% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
@@ -57,6 +57,19 @@
 - [x] 헬스체크 고도화
   - `GET /health` → Mongo ping 기반 상태 반환
   - `GET /api/health` → Mongo 연결 상태 메타 반환
+- [x] Express app 분리 (`backend/src/app.ts`)
+  - 테스트 가능한 앱 팩토리(`createApp`) 구조 적용
+- [x] 스키마 조회 API 뼈대 구현
+  - `GET /api/schema/:dataType`
+  - 정상 응답: `{ columns, filters }`
+  - 잘못된 dataType 응답: `400 { error, message, supportedDataTypes }`
+- [x] schemaProvider + dataType 레지스트리 추가
+  - `backend/src/services/schemaProvider.ts`
+  - `backend/src/config/schema/index.ts`
+  - 6개 dataType 스키마 파일 스켈레톤 생성
+- [x] 최소 스모크 테스트 추가
+  - `backend/scripts/smoke-schema-endpoint.ts`
+  - 검증 케이스: 정상 1건 + 잘못된 dataType 1건
 
 ---
 
@@ -74,13 +87,14 @@
   - [x] full-scan 실행 성공 (`maxCollections=500`, `sampleDocs=1`)
   - [x] 결과 리포트 생성: `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json`
   - [ ] dataType/필터/식별자 키 최종 확정
-- [ ] 6개 데이터 유형 스키마 설정 파일
+- [x] 6개 데이터 유형 스키마 설정 파일(스켈레톤)
 - [ ] queryBuilder.ts — 필터 → MongoDB Aggregation Pipeline 변환
 - [ ] 입력값 검증 (Zod 스키마)
 
 ### Phase 3 (다음 작업)
-- [ ] `GET /api/schema/:dataType` 라우트 + schemaProvider 뼈대 구현
-- [ ] `routes/`, `services/` 디렉토리 생성 및 라우터 마운트 구조 전환
+- [x] `GET /api/schema/:dataType` 라우트 + schemaProvider 뼈대 구현
+- [x] `routes/`, `services/` 디렉토리 생성 및 라우터 마운트 구조 전환
+- [x] `GET /api/schema/:dataType` 최소 스모크 테스트 2케이스
 
 ### 실측 요약 (full-scan)
 - `prod` DB: 58 collections
@@ -114,11 +128,28 @@ user_log_dashboard/
 │   ├── package.json
 │   ├── package-lock.json
 │   ├── tsconfig.json
+│   ├── scripts/
+│   │   ├── profile-mongo-readonly.cjs
+│   │   └── smoke-schema-endpoint.ts
 │   └── src/
-│       ├── index.ts               ← 헬스체크 + 부트스트랩
+│       ├── app.ts                 ← Express 앱 팩토리
+│       ├── index.ts               ← 부트스트랩 (Mongo 연결 + listen)
+│       ├── routes/
+│       │   └── data.ts            ← /api/schema/:dataType
+│       ├── services/
+│       │   └── schemaProvider.ts
 │       └── config/
 │           ├── env.ts             ← Zod 환경변수 로더
-│           └── database.ts        ← MongoDB 연결 레이어
+│           ├── database.ts        ← MongoDB 연결 레이어
+│           └── schema/
+│               ├── conversations.ts
+│               ├── api_usage_logs.ts
+│               ├── event_logs.ts
+│               ├── error_logs.ts
+│               ├── billing_logs.ts
+│               ├── user_activities.ts
+│               ├── types.ts
+│               └── index.ts
 └── scripts/
     └── deploy-cloudrun.ps1
 ```
@@ -197,3 +228,4 @@ user_log_dashboard/
 | 날짜 | 변경 내용 |
 |------|-----------|
 | 2026-02-14 | 최초 작성. Phase 1 부분 완료 상태에서 시작. |
+| 2026-02-14 | `/api/schema/:dataType` 응답 포맷 `{columns,filters}` 고정, schemaProvider/registry/6개 schema 스켈레톤 추가, 최소 스모크 테스트(정상+오류) 추가. |

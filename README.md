@@ -7,7 +7,7 @@
 - Infra: Docker + Google Cloud Run
 - DB: MongoDB Atlas (Read-Only 접근 전제)
 
-현재 저장소는 **백엔드 스캐폴딩 및 Cloud Run 배포 기반**까지 구현된 상태입니다.
+현재 저장소는 **백엔드 스캐폴딩 + Mongo 연결 + schema 조회 API 뼈대**까지 구현된 상태입니다.
 
 ## 1) 프로젝트 목적
 
@@ -28,9 +28,18 @@
 - 헬스체크 엔드포인트
   - `GET /health`
   - `GET /api/health`
+- 스키마 조회 엔드포인트
+  - `GET /api/schema/:dataType`
+  - 정상 응답: `{ columns: [{ key, label, type }], filters: [{ key, label, type, options? }] }`
+  - 오류 응답(잘못된 dataType): `400 { error, message, supportedDataTypes }`
+- dataType 스키마 레지스트리/프로바이더 뼈대
+  - `conversations`, `api_usage_logs`, `event_logs`, `error_logs`, `billing_logs`, `user_activities`
 - Docker 멀티스테이지 빌드 (`backend/Dockerfile`)
 - Cloud Run 배포 스크립트 (`scripts/deploy-cloudrun.ps1`)
 - GitHub Actions 배포 워크플로우 (`.github/workflows/deploy-backend-cloudrun.yml`)
+- 최소 스모크 테스트
+  - `backend/scripts/smoke-schema-endpoint.ts`
+  - 정상/잘못된 dataType 2케이스 검증
 
 미구현(다음 단계):
 
@@ -49,8 +58,20 @@ user_log_dashboard/
 │   ├── Dockerfile
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── scripts/
+│   │   ├── profile-mongo-readonly.cjs
+│   │   └── smoke-schema-endpoint.ts
 │   └── src/
-│       └── index.ts
+│       ├── app.ts
+│       ├── index.ts
+│       ├── routes/
+│       │   └── data.ts
+│       ├── services/
+│       │   └── schemaProvider.ts
+│       └── config/
+│           ├── database.ts
+│           ├── env.ts
+│           └── schema/
 ├── scripts/
 │   └── deploy-cloudrun.ps1
 ├── .github/workflows/
@@ -82,6 +103,7 @@ npm run dev
 
 - `http://localhost:8080/health`
 - `http://localhost:8080/api/health`
+- `http://localhost:8080/api/schema/api_usage_logs`
 
 ## 5) 빌드 및 컨테이너
 
@@ -89,6 +111,9 @@ npm run dev
 cd backend
 npm run build
 npm run start
+
+# 최소 스모크 테스트
+npm run test:smoke:schema
 ```
 
 Docker 이미지 빌드 예시:
@@ -138,12 +163,11 @@ docker build -t log-csv-api:local .
 
 ## 8) 다음 우선순위
 
-1. MongoDB 연결 레이어(`config/database.ts`) 추가
-2. dataType 스키마 파일 작성 (`chats`, `usagelogs`, `errorlogs`, `logentrydbs` 우선)
-3. `queryBuilder.ts` 구현 (식별자 키 매핑 검증 포함)
-4. `/api/data/query`, `/api/data/export-csv`, `/api/data/export-json` 구현
-5. 인증/권한(`auth.ts`, `authz.ts`) 구현
-6. 프론트엔드(Vite + React + Tailwind + shadcn/ui) 초기화
+1. dataType 스키마의 실데이터 기준 필드/필터 확정 (현재는 스켈레톤)
+2. `queryBuilder.ts` 구현 (식별자 키 매핑 검증 포함)
+3. `/api/data/query`, `/api/data/export-csv`, `/api/data/export-json` 구현
+4. 인증/권한(`auth.ts`, `authz.ts`) 구현
+5. 프론트엔드(Vite + React + Tailwind + shadcn/ui) 초기화
 
 ### 무영향 스키마 실사 실행
 
