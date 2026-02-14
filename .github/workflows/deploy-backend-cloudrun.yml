@@ -26,10 +26,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Validate GCP auth configuration
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.GCP_SA_KEY }}" ]; then
+            echo "Using GCP_SA_KEY secret for authentication."
+            exit 0
+          fi
+
+          if [ -n "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] && [ -n "${{ vars.GCP_SERVICE_ACCOUNT }}" ]; then
+            echo "Using Workload Identity Federation for authentication."
+            exit 0
+          fi
+
+          echo "Missing GCP authentication config." >&2
+          echo "Set one of the following:" >&2
+          echo "1) Repository Secret: GCP_SA_KEY (raw service account JSON)" >&2
+          echo "2) Repository Variables: GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT" >&2
+          exit 1
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_SA_KEY != '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Authenticate to Google Cloud (Workload Identity)
+        if: ${{ secrets.GCP_SA_KEY == '' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2

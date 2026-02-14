@@ -255,7 +255,9 @@ docker build -t log-csv-api:local .
 
 - `main` 브랜치에 `backend/**` 변경 푸시 시 자동 배포
 - 워크플로우: `.github/workflows/deploy-backend-cloudrun.yml`
-- 필요 시 GitHub Secret: `GCP_SA_KEY`
+- Google Cloud 인증은 아래 두 방식 중 하나를 설정
+  - 방식 A (권장 빠른 설정): GitHub Secret `GCP_SA_KEY` (서비스 계정 JSON 원문)
+  - 방식 B (권장 보안): GitHub Variables `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`
 - `main` 브랜치에 `frontend/**` 변경 푸시 시 GitHub Pages 자동 배포
 - 워크플로우: `.github/workflows/deploy-frontend-pages.yml`
 - GitHub Repository Variables 권장값:
