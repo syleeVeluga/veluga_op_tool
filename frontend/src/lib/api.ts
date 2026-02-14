@@ -74,6 +74,27 @@ export interface PartnerCustomerResolveResponse {
   customers: CustomerSearchItem[]
 }
 
+export type UserRole = 'super_admin' | 'admin' | 'user'
+
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  mustChangePassword: boolean
+}
+
+export interface DashboardUser {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  mustChangePassword: boolean
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
   const base = (rawBaseUrl ?? 'http://localhost:8080/api').trim()
   const withoutTrailingSlash = base.replace(/\/+$/, '')
@@ -87,10 +108,11 @@ function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
 
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestJson<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -125,4 +147,66 @@ export function searchCustomers(query: string): Promise<CustomerSearchResponse> 
 export function resolveCustomersByPartnerId(partnerId: string): Promise<PartnerCustomerResolveResponse> {
   const encoded = encodeURIComponent(partnerId)
   return requestJson<PartnerCustomerResolveResponse>(`/customers/by-partner?partnerId=${encoded}`)
+}
+
+export function login(payload: { email: string; password: string }): Promise<{ token: string; user: AuthUser }> {
+  return requestJson<{ token: string; user: AuthUser }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchMe(token: string): Promise<{ user: DashboardUser | null }> {
+  return requestJson<{ user: DashboardUser | null }>('/auth/me', undefined, token)
+}
+
+export function changeMyPassword(
+  token: string,
+  payload: { currentPassword: string; newPassword: string },
+): Promise<{ ok: boolean; user: AuthUser | null }> {
+  return requestJson<{ ok: boolean; user: AuthUser | null }>(
+    '/auth/change-password',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export function listAdminUsers(token: string): Promise<{ users: DashboardUser[] }> {
+  return requestJson<{ users: DashboardUser[] }>('/admin/users', undefined, token)
+}
+
+export function createAdminUser(
+  token: string,
+  payload: { email: string; name: string; role: UserRole; password: string; isActive?: boolean },
+): Promise<{ user: DashboardUser }> {
+  return requestJson<{ user: DashboardUser }>(
+    '/admin/users',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export function updateAdminUser(
+  token: string,
+  userId: string,
+  payload: { email?: string; name?: string; role?: UserRole; password?: string; isActive?: boolean },
+): Promise<{ user: DashboardUser }> {
+  return requestJson<{ user: DashboardUser }>(
+    `/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export function deleteAdminUser(token: string, userId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }, token)
 }

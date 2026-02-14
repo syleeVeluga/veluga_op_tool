@@ -15,7 +15,7 @@
 | Phase 4 | 프론트엔드 레이아웃 + 필터 | 🟡 진행중 | 94% |
 | Phase 5 | 프론트엔드 결과/다운로드 | 🟡 진행중 | 52% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
-| Phase 7 | 관리자 기능 | ⬜ 미시작 | 0% |
+| Phase 7 | 관리자 기능 | 🟡 진행중 | 48% |
 | Phase 8 | 통합 테스트 + QA + 배포 | ⬜ 미시작 | 0% |
 
 ---
@@ -205,6 +205,31 @@
   - [x] partner ID → 사용자 ID 배열 해석 서비스 추가 (`backend/src/services/customerSearch.ts`)
   - [x] `POST /api/data/query`가 `customerId` 또는 `customerIds`를 허용하도록 확장
   - [x] 프론트 필터 패널에 Partner ID 입력/해석 UX 및 멤버수 표시 추가
+
+### Phase 7 (착수)
+
+- [x] 인증/사용자 관리 백엔드 1차 구현
+  - [x] `POST /api/auth/login` (이메일+비밀번호 로그인, JWT 발급)
+  - [x] `GET /api/auth/me` (현재 로그인 사용자 확인)
+  - [x] `POST /api/auth/change-password` (로그인 사용자 비밀번호 변경)
+  - [x] `GET/POST/PUT/DELETE /api/admin/users` (사용자 추가/조회/수정/삭제)
+  - [x] RBAC 미들웨어 추가 (`super_admin`, `admin`, `user`)
+- [x] 슈퍼어드민 부트스트랩 정책 추가
+  - [x] 기본 슈퍼어드민 이메일: `syleee@veluga.io`, `sylee@veluga.io`
+  - [x] 슈퍼어드민 다중 계정 지원 (`SUPER_ADMIN_EMAILS` CSV)
+  - [x] 초기 비밀번호 변경 강제 플래그(`mustChangePassword`) 도입
+- [x] 프론트 관리자 기능 1차 구현 (`frontend/src/App.tsx`)
+  - [x] 로그인/로그아웃 UI
+  - [x] 사용자 메뉴 내 비밀번호 변경 UI
+  - [x] 관리자/슈퍼어드민 사용자 추가 UI
+  - [x] 관리자/슈퍼어드민 사용자 목록 + 역할변경/활성토글/암호재설정/삭제
+- [x] 프론트 관리자 기능 2차 보강
+  - [x] 사용자 목록 인라인 편집(이메일/이름 입력 후 저장)
+- [x] 인증 스모크 테스트 보강
+  - [x] 비활성 사용자 로그인 차단 시나리오 스크립트 추가
+    - `backend/scripts/smoke-auth-inactive-login.ts`
+    - `npm run test:smoke:auth-inactive-login`
+  - [x] 로컬 환경에서 `MONGODB_URI` 미설정 시 skip 처리(오탐 방지)
 
 ### Phase 2 (다음 마일스톤)
 - [ ] **Production 무영향 스키마 실사**
@@ -425,3 +450,6 @@ user_log_dashboard/
 | 2026-02-14 | 운영자 UX 이슈 대응: Data Type별 조회 대상/식별자(customer key) 안내 및 Customer ID 동적 힌트 추가, 자동완성 범위 명확화. |
 | 2026-02-14 | partner ID(`users._id`) 기준 `users.members` 확장 조회 기능 추가: `/api/customers/by-partner` + `/api/data/query.customerIds[]` + 프론트 Partner ID 조회 UX 반영. |
 | 2026-02-14 | main 브랜치 기준 프론트 자동 배포 설정 추가: `.github/workflows/deploy-frontend-pages.yml`(GitHub Pages) + `vite` base env(`VITE_BASE_PATH`) 반영. |
+| 2026-02-14 | Phase 7 착수: 인증/JWT + 사용자관리 CRUD + 슈퍼어드민 부트스트랩(다중 이메일) + 로그인 후 비밀번호 변경 + 프론트 관리자 UI 1차 구현. |
+| 2026-02-14 | Phase 7 보강: 관리자 사용자 목록 인라인 편집(이메일/이름 저장) 추가, 비활성 사용자 로그인 차단 스모크(`test:smoke:auth-inactive-login`) 추가. |
+| 2026-02-14 | 인증 스모크 로컬 실행 보강: `MONGODB_URI` 미설정 환경에서는 skip 처리해 로컬 오탐 방지. |

@@ -15,18 +15,23 @@
     "test:smoke:customer-search": "tsx scripts/smoke-customer-search-endpoint.ts",
     "test:smoke:conversation-batch": "tsx scripts/smoke-conversation-batch-endpoint.ts",
     "test:smoke:period-summary": "tsx scripts/smoke-period-summary-endpoint.ts",
-    "test:smoke:data-type-summary": "tsx scripts/smoke-data-type-summary-endpoint.ts"
+    "test:smoke:data-type-summary": "tsx scripts/smoke-data-type-summary-endpoint.ts",
+    "test:smoke:auth-inactive-login": "tsx scripts/smoke-auth-inactive-login.ts"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.18",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.14.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"

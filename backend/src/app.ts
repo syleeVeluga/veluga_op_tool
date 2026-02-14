@@ -5,6 +5,8 @@ import {
   getMongoConnectionStatus,
 } from "./config/database";
 import { env } from "./config/env";
+import { adminUsersRouter } from "./routes/adminUsers";
+import { authRouter } from "./routes/auth";
 import { dataRouter } from "./routes/data";
 
 export function createApp() {
@@ -41,6 +43,8 @@ export function createApp() {
     });
   });
 
+  app.use("/api/auth", authRouter);
+  app.use("/api/admin", adminUsersRouter);
   app.use("/api", dataRouter);
 
   return app;

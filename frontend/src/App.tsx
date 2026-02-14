@@ -1,14 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  changeMyPassword,
+  createAdminUser,
   type CustomerSearchItem,
   type DataType,
   type DataTypeSchema,
+  deleteAdminUser,
+  fetchMe,
+  type DashboardUser,
+  login,
+  listAdminUsers,
   type QueryFilterValue,
+  type UserRole,
   fetchSchema,
   postDataQuery,
   resolveCustomersByPartnerId,
   searchCustomers,
+  updateAdminUser,
 } from './lib/api'
 
 const DATA_TYPES: DataType[] = [
@@ -90,6 +99,31 @@ const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
 const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
 const QUERY_SETTINGS_STORAGE_KEY = 'user-log-dashboard:query-settings:v1'
 const FILTER_SETTINGS_STORAGE_KEY = 'user-log-dashboard:filter-settings:v1'
+const AUTH_SESSION_STORAGE_KEY = 'user-log-dashboard:auth-session:v1'
+
+interface AuthSession {
+  token: string
+  user: {
+    id: string
+    email: string
+    name: string
+    role: UserRole
+    mustChangePassword: boolean
+  }
+}
+
+interface AdminUserFormState {
+  email: string
+  name: string
+  role: UserRole
+  password: string
+  isActive: boolean
+}
+
+interface AdminUserEditDraft {
+  email: string
+  name: string
+}
 
 type FilterInputState = Record<string, string | { min?: string; max?: string }>
 
@@ -328,6 +362,37 @@ function saveStoredFilterState(dataType: DataType, customerId: string, filters: 
   }
 }
 
+function loadAuthSession(): AuthSession | null {
+  try {
+    const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as AuthSession
+    if (!parsed?.token || !parsed?.user?.id) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function saveAuthSession(session: AuthSession | null): void {
+  try {
+    if (!session) {
+      window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session))
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
 function sanitizeStoredFilters(schema: DataTypeSchema, candidate: FilterInputState): FilterInputState {
   const next: FilterInputState = {}
   const schemaFilterMap = new Map(schema.filters.map((filter) => [filter.key, filter]))
@@ -425,6 +490,31 @@ function triggerFileDownload(content: string, fileName: string, mimeType: string
 
 function App() {
   const initialQuerySettings = loadStoredQueryUiSettings()
+  const initialSession = loadAuthSession()
+
+  const [authToken, setAuthToken] = useState<string>(initialSession?.token ?? '')
+  const [authUser, setAuthUser] = useState<AuthSession['user'] | null>(initialSession?.user ?? null)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [passwordCurrent, setPasswordCurrent] = useState('')
+  const [passwordNext, setPasswordNext] = useState('')
+  const [passwordNotice, setPasswordNotice] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  const [adminUsers, setAdminUsers] = useState<DashboardUser[]>([])
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false)
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null)
+  const [adminForm, setAdminForm] = useState<AdminUserFormState>({
+    email: '',
+    name: '',
+    role: 'user',
+    password: '',
+    isActive: true,
+  })
+  const [adminUserEdits, setAdminUserEdits] = useState<Record<string, AdminUserEditDraft>>({})
 
   const [dataType, setDataType] = useState<DataType>(initialQuerySettings.dataType)
   const [customerId, setCustomerId] = useState('')
@@ -461,6 +551,7 @@ function App() {
   const [exportNotice, setExportNotice] = useState<string | null>(null)
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
+  const canManageUsers = authUser?.role === 'super_admin' || authUser?.role === 'admin'
   const isPartnerResolvedMode = selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
   const channelFilterKey = useMemo(() => {
     if (!schema) {
@@ -618,6 +709,236 @@ function App() {
     }
   }
 
+  const fetchAdminUserList = async (token: string) => {
+    if (!canManageUsers) {
+      return
+    }
+
+    setAdminUsersLoading(true)
+    setAdminUsersError(null)
+
+    try {
+      const result = await listAdminUsers(token)
+      setAdminUsers(result.users)
+    } catch (error) {
+      setAdminUsers([])
+      setAdminUsersError(error instanceof Error ? error.message : '사용자 목록 조회 실패')
+    } finally {
+      setAdminUsersLoading(false)
+    }
+  }
+
+  const onLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setLoginError('이메일과 비밀번호를 입력해 주세요.')
+      return
+    }
+
+    setLoginLoading(true)
+    setLoginError(null)
+
+    try {
+      const result = await login({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      })
+
+      const session: AuthSession = {
+        token: result.token,
+        user: result.user,
+      }
+
+      setAuthToken(result.token)
+      setAuthUser(result.user)
+      saveAuthSession(session)
+      setLoginPassword('')
+      setPasswordNotice(result.user.mustChangePassword ? '초기 비밀번호입니다. 즉시 변경해 주세요.' : null)
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : '로그인 실패')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  const onLogout = () => {
+    setAuthToken('')
+    setAuthUser(null)
+    setAdminUsers([])
+    setAdminUsersError(null)
+    setPasswordCurrent('')
+    setPasswordNext('')
+    setPasswordNotice(null)
+    setPasswordError(null)
+    saveAuthSession(null)
+  }
+
+  const onSubmitChangePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!authToken || !authUser) {
+      setPasswordError('로그인이 필요합니다.')
+      return
+    }
+
+    setPasswordLoading(true)
+    setPasswordError(null)
+    setPasswordNotice(null)
+
+    try {
+      const result = await changeMyPassword(authToken, {
+        currentPassword: passwordCurrent,
+        newPassword: passwordNext,
+      })
+
+      const nextUser = result.user ?? authUser
+      const nextSession: AuthSession = {
+        token: authToken,
+        user: nextUser,
+      }
+
+      setAuthUser(nextUser)
+      saveAuthSession(nextSession)
+      setPasswordCurrent('')
+      setPasswordNext('')
+      setPasswordNotice('비밀번호를 변경했습니다.')
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : '비밀번호 변경 실패')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const onCreateUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    setAdminUsersLoading(true)
+    setAdminUsersError(null)
+
+    try {
+      await createAdminUser(authToken, {
+        email: adminForm.email.trim(),
+        name: adminForm.name.trim(),
+        role: adminForm.role,
+        password: adminForm.password,
+        isActive: adminForm.isActive,
+      })
+
+      setAdminForm({
+        email: '',
+        name: '',
+        role: 'user',
+        password: '',
+        isActive: true,
+      })
+
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '사용자 생성 실패')
+    } finally {
+      setAdminUsersLoading(false)
+    }
+  }
+
+  const onToggleActive = async (user: DashboardUser) => {
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    try {
+      await updateAdminUser(authToken, user.id, { isActive: !user.isActive })
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '사용자 상태 변경 실패')
+    }
+  }
+
+  const onSaveUserProfile = async (user: DashboardUser) => {
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    const draft = adminUserEdits[user.id]
+    if (!draft) {
+      return
+    }
+
+    const nextEmail = draft.email.trim()
+    const nextName = draft.name.trim()
+
+    if (!nextEmail || !nextName) {
+      setAdminUsersError('이메일과 이름은 비워둘 수 없습니다.')
+      return
+    }
+
+    if (nextEmail === user.email && nextName === user.name) {
+      return
+    }
+
+    try {
+      await updateAdminUser(authToken, user.id, {
+        email: nextEmail,
+        name: nextName,
+      })
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '사용자 정보 수정 실패')
+    }
+  }
+
+  const onChangeRole = async (user: DashboardUser, role: UserRole) => {
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    try {
+      await updateAdminUser(authToken, user.id, { role })
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '역할 변경 실패')
+    }
+  }
+
+  const onResetUserPassword = async (user: DashboardUser) => {
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    const nextPassword = window.prompt(`새 비밀번호를 입력하세요 (${user.email})`)
+    if (!nextPassword || nextPassword.trim().length < 8) {
+      return
+    }
+
+    try {
+      await updateAdminUser(authToken, user.id, { password: nextPassword.trim() })
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '비밀번호 재설정 실패')
+    }
+  }
+
+  const onDeleteUser = async (user: DashboardUser) => {
+    if (!authToken || !canManageUsers) {
+      return
+    }
+
+    if (!window.confirm(`${user.email} 사용자를 삭제할까요?`)) {
+      return
+    }
+
+    try {
+      await deleteAdminUser(authToken, user.id)
+      await fetchAdminUserList(authToken)
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '사용자 삭제 실패')
+    }
+  }
+
   useEffect(() => {
     let active = true
 
@@ -673,6 +994,72 @@ function App() {
       active = false
     }
   }, [dataType])
+
+  useEffect(() => {
+    if (!authToken) {
+      return
+    }
+
+    let active = true
+
+    void fetchMe(authToken)
+      .then((result) => {
+        if (!active || !result.user) {
+          return
+        }
+
+        const nextUser: AuthSession['user'] = {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
+          mustChangePassword: result.user.mustChangePassword,
+        }
+
+        setAuthUser(nextUser)
+        saveAuthSession({ token: authToken, user: nextUser })
+      })
+      .catch(() => {
+        if (!active) {
+          return
+        }
+
+        onLogout()
+      })
+
+    return () => {
+      active = false
+    }
+  }, [authToken])
+
+  useEffect(() => {
+    if (!authToken || !authUser) {
+      setAdminUsers([])
+      return
+    }
+
+    if (authUser.role !== 'super_admin' && authUser.role !== 'admin') {
+      setAdminUsers([])
+      return
+    }
+
+    void fetchAdminUserList(authToken)
+  }, [authToken, authUser?.id, authUser?.role])
+
+  useEffect(() => {
+    setAdminUserEdits((prev) => {
+      const next: Record<string, AdminUserEditDraft> = {}
+
+      for (const user of adminUsers) {
+        next[user.id] = prev[user.id] ?? {
+          email: user.email,
+          name: user.name,
+        }
+      }
+
+      return next
+    })
+  }, [adminUsers])
 
   useEffect(() => {
     if (DATA_TYPE_GUIDE[dataType].supportsUserLookup) {
@@ -898,11 +1285,264 @@ function App() {
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <h1 className="text-lg font-semibold">User Log Dashboard</h1>
-          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">Filter + Query MVP</span>
+          <div className="flex items-center gap-2">
+            {authUser ? (
+              <>
+                <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs text-emerald-700">
+                  {authUser.email} · {authUser.role}
+                </span>
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                  onClick={onLogout}
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">로그인이 필요합니다</span>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="mx-auto grid max-w-7xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:px-8">
+        {!authUser ? (
+          <section className="rounded-lg border bg-white p-4 lg:col-span-12">
+            <h2 className="mb-3 text-sm font-semibold">로그인</h2>
+            <form className="max-w-md space-y-3" onSubmit={onLoginSubmit}>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">이메일</span>
+                <input
+                  type="email"
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="user@veluga.io"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">비밀번호</span>
+                <input
+                  type="password"
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                />
+              </label>
+              {loginError && <p className="text-xs text-red-600">{loginError}</p>}
+              <button
+                type="submit"
+                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loginLoading}
+              >
+                {loginLoading ? '로그인 중...' : '로그인'}
+              </button>
+            </form>
+          </section>
+        ) : (
+          <>
+            <section className="rounded-lg border bg-white p-4 lg:col-span-12">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <h2 className="mb-2 text-sm font-semibold">사용자 메뉴 · 비밀번호 변경</h2>
+                  <form className="space-y-2" onSubmit={onSubmitChangePassword}>
+                    <input
+                      type="password"
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      placeholder="현재 비밀번호"
+                      value={passwordCurrent}
+                      onChange={(e) => setPasswordCurrent(e.target.value)}
+                      required
+                    />
+                    <input
+                      type="password"
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      placeholder="새 비밀번호 (8자 이상)"
+                      value={passwordNext}
+                      onChange={(e) => setPasswordNext(e.target.value)}
+                      minLength={8}
+                      required
+                    />
+                    {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
+                    {passwordNotice && <p className="text-xs text-emerald-700">{passwordNotice}</p>}
+                    <button
+                      type="submit"
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={passwordLoading}
+                    >
+                      {passwordLoading ? '변경 중...' : '내 비밀번호 변경'}
+                    </button>
+                  </form>
+                </div>
+
+                {canManageUsers && (
+                  <div>
+                    <h2 className="mb-2 text-sm font-semibold">관리자 기능 · 사용자 추가</h2>
+                    <form className="grid grid-cols-1 gap-2 sm:grid-cols-2" onSubmit={onCreateUser}>
+                      <input
+                        type="email"
+                        className="rounded-md border px-3 py-2 text-sm"
+                        placeholder="email"
+                        value={adminForm.email}
+                        onChange={(e) => setAdminForm((prev) => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
+                      <input
+                        className="rounded-md border px-3 py-2 text-sm"
+                        placeholder="name"
+                        value={adminForm.name}
+                        onChange={(e) => setAdminForm((prev) => ({ ...prev, name: e.target.value }))}
+                        required
+                      />
+                      <select
+                        className="rounded-md border px-3 py-2 text-sm"
+                        value={adminForm.role}
+                        onChange={(e) => setAdminForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
+                      >
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                        <option value="super_admin">super_admin</option>
+                      </select>
+                      <input
+                        type="password"
+                        className="rounded-md border px-3 py-2 text-sm"
+                        placeholder="초기 비밀번호"
+                        minLength={8}
+                        value={adminForm.password}
+                        onChange={(e) => setAdminForm((prev) => ({ ...prev, password: e.target.value }))}
+                        required
+                      />
+                      <label className="flex items-center gap-2 text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={adminForm.isActive}
+                          onChange={(e) => setAdminForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                        />
+                        활성 사용자
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={adminUsersLoading}
+                      >
+                        사용자 추가
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+
+              {canManageUsers && (
+                <div className="mt-4 rounded-md border bg-slate-50 p-3">
+                  <div className="mb-2 text-xs font-semibold text-slate-700">사용자 목록</div>
+                  {adminUsersLoading && <p className="text-xs text-slate-500">로딩 중...</p>}
+                  {adminUsersError && <p className="text-xs text-red-600">{adminUsersError}</p>}
+                  {!adminUsersLoading && adminUsers.length === 0 && (
+                    <p className="text-xs text-slate-500">등록된 사용자가 없습니다.</p>
+                  )}
+                  {!adminUsersLoading && adminUsers.length > 0 && (
+                    <div className="overflow-auto rounded-md border bg-white">
+                      <table className="min-w-full border-collapse text-left text-xs">
+                        <thead className="bg-slate-100 text-slate-700">
+                          <tr>
+                            <th className="border-b px-2 py-2">email</th>
+                            <th className="border-b px-2 py-2">name</th>
+                            <th className="border-b px-2 py-2">role</th>
+                            <th className="border-b px-2 py-2">active</th>
+                            <th className="border-b px-2 py-2">actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminUsers.map((user) => (
+                            <tr key={user.id} className="odd:bg-white even:bg-slate-50">
+                              <td className="border-b px-2 py-2">
+                                <input
+                                  type="email"
+                                  className="w-full min-w-44 rounded border px-2 py-1"
+                                  value={adminUserEdits[user.id]?.email ?? user.email}
+                                  onChange={(e) =>
+                                    setAdminUserEdits((prev) => ({
+                                      ...prev,
+                                      [user.id]: {
+                                        email: e.target.value,
+                                        name: prev[user.id]?.name ?? user.name,
+                                      },
+                                    }))
+                                  }
+                                />
+                              </td>
+                              <td className="border-b px-2 py-2">
+                                <input
+                                  className="w-full min-w-32 rounded border px-2 py-1"
+                                  value={adminUserEdits[user.id]?.name ?? user.name}
+                                  onChange={(e) =>
+                                    setAdminUserEdits((prev) => ({
+                                      ...prev,
+                                      [user.id]: {
+                                        email: prev[user.id]?.email ?? user.email,
+                                        name: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                              </td>
+                              <td className="border-b px-2 py-2">
+                                <select
+                                  className="rounded border px-1 py-1"
+                                  value={user.role}
+                                  onChange={(e) => onChangeRole(user, e.target.value as UserRole)}
+                                >
+                                  <option value="user">user</option>
+                                  <option value="admin">admin</option>
+                                  <option value="super_admin">super_admin</option>
+                                </select>
+                              </td>
+                              <td className="border-b px-2 py-2">{user.isActive ? 'Y' : 'N'}</td>
+                              <td className="border-b px-2 py-2">
+                                <div className="flex flex-wrap gap-1">
+                                  <button
+                                    type="button"
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
+                                    onClick={() => onSaveUserProfile(user)}
+                                  >
+                                    저장
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
+                                    onClick={() => onToggleActive(user)}
+                                  >
+                                    활성토글
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
+                                    onClick={() => onResetUserPassword(user)}
+                                  >
+                                    암호재설정
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
+                                    onClick={() => onDeleteUser(user)}
+                                  >
+                                    삭제
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
         <section className="rounded-lg border bg-white p-4 lg:col-span-4">
           <h2 className="mb-4 text-sm font-semibold">필터 패널</h2>
 
@@ -1348,6 +1988,8 @@ function App() {
             </div>
           )}
         </section>
+          </>
+        )}
       </main>
     </div>
   )

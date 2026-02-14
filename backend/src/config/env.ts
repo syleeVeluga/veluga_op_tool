@@ -12,6 +12,10 @@ const envSchema = z.object({
   OPS_TOOL_DB_NAME: z.string().default("ops_tool"),
   JWT_SECRET: z.string().optional(),
   JWT_EXPIRES_IN: z.string().default("8h"),
+  SUPER_ADMIN_EMAILS: z
+    .string()
+    .default("syleee@veluga.io,sylee@veluga.io"),
+  SUPER_ADMIN_INITIAL_PASSWORD: z.string().default("ChangeMe123!"),
   MAX_EXPORT_ROWS: z.coerce.number().int().positive().default(10000),
   CSV_TRUNCATE_LENGTH: z.coerce.number().int().positive().default(5000),
   MAX_CONCURRENT_EXPORTS: z.coerce.number().int().positive().default(2),
@@ -36,4 +40,7 @@ const corsOrigins = rawEnv.CORS_ORIGIN === "*"
 export const env = {
   ...rawEnv,
   corsOrigins,
+  SUPER_ADMIN_EMAILS: rawEnv.SUPER_ADMIN_EMAILS.split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
 };
