@@ -1,7 +1,7 @@
 # 프로젝트 진행 상황 — 고객 로그 데이터 추출 대시보드
 
 > 최종 갱신: 2026-02-14
-> 전체 진행률: ~85%
+> 전체 진행률: ~88%
 
 ---
 
@@ -13,7 +13,7 @@
 | Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 65% |
 | Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 78% |
 | Phase 4 | 프론트엔드 레이아웃 + 필터 | 🟡 진행중 | 94% |
-| Phase 5 | 프론트엔드 결과/다운로드 | ⬜ 미시작 | 0% |
+| Phase 5 | 프론트엔드 결과/다운로드 | 🟡 진행중 | 35% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
 | Phase 7 | 관리자 기능 | ⬜ 미시작 | 0% |
 | Phase 8 | 통합 테스트 + QA + 배포 | ⬜ 미시작 | 0% |
@@ -182,6 +182,17 @@
 - [x] 데이터 타입/총건수 옵션(includeTotal) 상태 저장(localStorage) 적용
 - [x] 필터값(customerId + schema filters) 상태 저장(localStorage) 적용
 - [x] 결과 영역 실행 이력(최근 10건) 표시
+
+### Phase 5 (착수)
+- [x] 결과 영역 액션 버튼 뼈대 추가 (CSV/JSON)
+  - [x] `frontend/src/App.tsx` 결과 헤더에 CSV/JSON 다운로드 버튼 배치
+  - [x] 조회 결과 없을 때 비활성화 상태 처리
+  - [x] 클릭 시 Phase 5 연동 예정 안내 문구(placeholder) 표시
+- [x] CSV/JSON 다운로드 1차 구현 (클라이언트 저장)
+  - [x] 표시 컬럼(result columns) 기준으로 내보내기 데이터 생성
+  - [x] CSV escaping 및 UTF-8 BOM 적용
+  - [x] JSON pretty-print(2-space) 파일 저장
+  - [x] 데이터타입+타임스탬프 파일명 적용
 
 ### Phase 2 (다음 마일스톤)
 - [ ] **Production 무영향 스키마 실사**
@@ -398,3 +409,4 @@ user_log_dashboard/
 | 2026-02-14 | Cloud Run 리허설 1회 실행: 신규 Revision(`log-csv-api-00004-4xd`) 기동 실패(`MONGODB_URI` 누락), 트래픽은 기존 안정 Revision(`log-csv-api-00003-kb6`) 100% 유지 확인. |
 | 2026-02-14 | `MONGODB_URI` 고정 전제 재검증: `--no-traffic` 리허설 Revision(`log-csv-api-reh203921`) Ready 확인, 운영 트래픽(`log-csv-api-00003-kb6` 100%) 및 `/health`,`/api/health` 정상 확인. |
 | 2026-02-14 | 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 보류하고, `dateRange` 직접 설정을 우선 정책으로 확정. |
+| 2026-02-14 | Phase 5 다운로드 1차(클라이언트 CSV/JSON) 반영 후 전체 리뷰 수행: frontend/backend build 성공, Playwright 스크린샷 스모크(`http://127.0.0.1:4173`) 확인. |

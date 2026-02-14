@@ -50,12 +50,15 @@
   - `backend/scripts/smoke-schema-endpoint.ts`
   - `backend/scripts/smoke-data-type-summary-endpoint.ts`
   - 각 API 입력 검증 경로 중심 스모크 검증
+- 프론트엔드 MVP 연결
+  - 필터/조회/결과 테이블 렌더링
+  - 결과 컬럼 선택 및 localStorage 상태 저장
+  - CSV/JSON 클라이언트 다운로드(선택 컬럼 기준)
 
 미구현(다음 단계):
 
 - 인증/인가(JWT, RBAC)
-- CSV/JSON Export 엔진
-- 프론트엔드 기능 연결(필터/조회/다운로드)
+- 서버 측 CSV/JSON Export 엔진(API 기반 대용량 스트리밍)
 
 진행상황 문서는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 아키텍처는 [ARCHITECTURE.md](ARCHITECTURE.md)에서 확인할 수 있습니다.
 
@@ -123,6 +126,24 @@ npm run dev
 ```
 
 기본 URL: `http://localhost:5173`
+
+### Playwright로 프론트 확인
+
+```powershell
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 4173
+```
+
+다른 터미널에서:
+
+```powershell
+cd ..
+npx playwright install
+npx playwright screenshot --wait-for-timeout=2000 http://127.0.0.1:4173 playwright-frontend-home.png
+```
+
+성공 시 루트 경로에 `playwright-frontend-home.png`가 생성됩니다.
 
 ## 5) 빌드 및 컨테이너
 

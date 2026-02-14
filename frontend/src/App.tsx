@@ -292,6 +292,69 @@ function sanitizeStoredFilters(schema: DataTypeSchema, candidate: FilterInputSta
   return next
 }
 
+function toExportTimestamp(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const y = date.getFullYear()
+  const m = pad(date.getMonth() + 1)
+  const d = pad(date.getDate())
+  const hh = pad(date.getHours())
+  const mm = pad(date.getMinutes())
+  const ss = pad(date.getSeconds())
+  return `${y}${m}${d}-${hh}${mm}${ss}`
+}
+
+function toExportString(value: unknown): string {
+  if (value === null || value === undefined) {
+    return ''
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+
+  return String(value)
+}
+
+function escapeCsvCell(value: string): string {
+  const escaped = value.replaceAll('"', '""')
+  const needsQuote = /[",\n\r]/.test(escaped)
+  return needsQuote ? `"${escaped}"` : escaped
+}
+
+function buildCsvContent(rows: Array<Record<string, unknown>>, columns: string[]): string {
+  const header = columns.map((column) => escapeCsvCell(column)).join(',')
+  const body = rows
+    .map((row) => columns.map((column) => escapeCsvCell(toExportString(row[column]))).join(','))
+    .join('\n')
+
+  return body ? `${header}\n${body}` : header
+}
+
+function projectRowsByColumns(rows: Array<Record<string, unknown>>, columns: string[]): Array<Record<string, unknown>> {
+  return rows.map((row) => {
+    const projected: Record<string, unknown> = {}
+
+    for (const column of columns) {
+      projected[column] = row[column] ?? null
+    }
+
+    return projected
+  })
+}
+
+function triggerFileDownload(content: string, fileName: string, mimeType: string, withBom = false): void {
+  const blob = new Blob(withBom ? ['\uFEFF', content] : [content], { type: mimeType })
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  window.document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 function App() {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
@@ -319,6 +382,55 @@ function App() {
   const [queryLoading, setQueryLoading] = useState(false)
   const [queryError, setQueryError] = useState<string | null>(null)
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
+  const [exportNotice, setExportNotice] = useState<string | null>(null)
+
+  const availableColumns = useMemo(() => {
+    if (rows.length > 0) {
+      return Object.keys(rows[0])
+    }
+    return schema?.columns.map((c) => c.key) ?? []
+  }, [rows, schema])
+
+  const resultColumns = useMemo(() => {
+    if (selectedColumns.length === 0) {
+      return availableColumns
+    }
+
+    const set = new Set(availableColumns)
+    return selectedColumns.filter((column) => set.has(column))
+  }, [availableColumns, selectedColumns])
+
+  const onExportClick = (format: 'csv' | 'json') => {
+    const formatLabel = format.toUpperCase()
+
+    if (rows.length === 0) {
+      setExportNotice(`${formatLabel} 내보내기는 조회 결과가 있을 때 활성화됩니다.`)
+      return
+    }
+
+    if (resultColumns.length === 0) {
+      setExportNotice('내보낼 컬럼이 없습니다. 표시 컬럼을 확인해 주세요.')
+      return
+    }
+
+    const timestamp = toExportTimestamp(new Date())
+    const baseName = `user-log-${dataType}-${timestamp}`
+
+    try {
+      if (format === 'csv') {
+        const csv = buildCsvContent(rows, resultColumns)
+        triggerFileDownload(csv, `${baseName}.csv`, 'text/csv;charset=utf-8', true)
+      } else {
+        const projectedRows = projectRowsByColumns(rows, resultColumns)
+        const json = JSON.stringify(projectedRows, null, 2)
+        triggerFileDownload(json, `${baseName}.json`, 'application/json;charset=utf-8')
+      }
+
+      setExportNotice(`${formatLabel} 파일 다운로드를 시작했습니다.`)
+    } catch {
+      setExportNotice(`${formatLabel} 내보내기에 실패했습니다. 다시 시도해 주세요.`)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -416,22 +528,6 @@ function App() {
     }
   }, [customerQuery])
 
-  const availableColumns = useMemo(() => {
-    if (rows.length > 0) {
-      return Object.keys(rows[0])
-    }
-    return schema?.columns.map((c) => c.key) ?? []
-  }, [rows, schema])
-
-  const resultColumns = useMemo(() => {
-    if (selectedColumns.length === 0) {
-      return availableColumns
-    }
-
-    const set = new Set(availableColumns)
-    return selectedColumns.filter((column) => set.has(column))
-  }, [availableColumns, selectedColumns])
-
   const toggleColumn = (columnKey: string) => {
     setSelectedColumns((prev) => {
       if (prev.includes(columnKey)) {
@@ -488,6 +584,7 @@ function App() {
 
     setQueryLoading(true)
     setQueryError(null)
+    setExportNotice(null)
 
     try {
       const result = await postDataQuery({
@@ -775,12 +872,32 @@ function App() {
         <section className="rounded-lg border bg-white p-4 lg:col-span-8">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">결과 영역</h2>
-            <div className="text-xs text-slate-600">
-              rows: {rows.length}
-              {typeof total === 'number' ? ` / total: ${total}` : ''}
-              {hasMore ? ' / hasMore: true' : ''}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={rows.length === 0 || queryLoading}
+                onClick={() => onExportClick('csv')}
+              >
+                CSV 다운로드
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={rows.length === 0 || queryLoading}
+                onClick={() => onExportClick('json')}
+              >
+                JSON 다운로드
+              </button>
+              <div className="text-xs text-slate-600">
+                rows: {rows.length}
+                {typeof total === 'number' ? ` / total: ${total}` : ''}
+                {hasMore ? ' / hasMore: true' : ''}
+              </div>
             </div>
           </div>
+
+          {exportNotice && <p className="mb-3 text-xs text-slate-600">{exportNotice}</p>}
 
           <div className="mb-3 rounded-md border bg-slate-50 p-3">
             <div className="mb-2 text-xs font-semibold text-slate-700">실행 이력 (최근 10건)</div>
