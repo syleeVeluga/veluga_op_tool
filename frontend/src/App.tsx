@@ -21,6 +21,7 @@ const DATA_TYPES: DataType[] = [
 
 const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
 const QUERY_SETTINGS_STORAGE_KEY = 'user-log-dashboard:query-settings:v1'
+const FILTER_SETTINGS_STORAGE_KEY = 'user-log-dashboard:filter-settings:v1'
 
 type FilterInputState = Record<string, string | { min?: string; max?: string }>
 
@@ -191,6 +192,92 @@ function saveStoredQueryUiSettings(settings: QueryUiSettings): void {
   }
 }
 
+interface StoredFilterState {
+  customerId: string
+  filters: FilterInputState
+}
+
+function loadStoredFilterState(dataType: DataType): StoredFilterState | null {
+  try {
+    const raw = window.localStorage.getItem(FILTER_SETTINGS_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const item = parsed[dataType]
+
+    if (!item || typeof item !== 'object') {
+      return null
+    }
+
+    const candidate = item as Record<string, unknown>
+    const customerId = typeof candidate.customerId === 'string' ? candidate.customerId : ''
+    const filters =
+      candidate.filters && typeof candidate.filters === 'object' && !Array.isArray(candidate.filters)
+        ? (candidate.filters as FilterInputState)
+        : {}
+
+    return {
+      customerId,
+      filters,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveStoredFilterState(dataType: DataType, customerId: string, filters: FilterInputState): void {
+  try {
+    const raw = window.localStorage.getItem(FILTER_SETTINGS_STORAGE_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+
+    const next = {
+      ...parsed,
+      [dataType]: {
+        customerId,
+        filters,
+      },
+    }
+
+    window.localStorage.setItem(FILTER_SETTINGS_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+function sanitizeStoredFilters(schema: DataTypeSchema, candidate: FilterInputState): FilterInputState {
+  const next: FilterInputState = {}
+  const schemaFilterMap = new Map(schema.filters.map((filter) => [filter.key, filter]))
+
+  for (const [key, value] of Object.entries(candidate)) {
+    const schemaFilter = schemaFilterMap.get(key)
+    if (!schemaFilter) {
+      continue
+    }
+
+    if (schemaFilter.type === 'range') {
+      const range = asRangeValue(value)
+      const min = typeof range.min === 'string' ? range.min : undefined
+      const max = typeof range.max === 'string' ? range.max : undefined
+
+      if (min || max) {
+        next[key] = {
+          ...(min ? { min } : {}),
+          ...(max ? { max } : {}),
+        }
+      }
+      continue
+    }
+
+    if (typeof value === 'string') {
+      next[key] = value
+    }
+  }
+
+  return next
+}
+
 function App() {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
@@ -232,10 +319,18 @@ function App() {
         }
 
         setSchema(result)
-        setFilterInputs({})
         const schemaColumns = result.columns.map((column) => column.key)
         const schemaColumnSet = new Set(schemaColumns)
         const stored = loadStoredColumns(dataType)
+        const storedFilterState = loadStoredFilterState(dataType)
+
+        if (storedFilterState) {
+          setCustomerId(storedFilterState.customerId)
+          setFilterInputs(sanitizeStoredFilters(result, storedFilterState.filters))
+        } else {
+          setCustomerId('')
+          setFilterInputs({})
+        }
 
         if (stored && stored.length > 0) {
           const validStoredColumns = stored.filter((column) => schemaColumnSet.has(column))
@@ -359,6 +454,15 @@ function App() {
       includeTotal,
     })
   }, [dataType, startAt, endAt, pageSize, includeTotal])
+
+  useEffect(() => {
+    if (!schema) {
+      return
+    }
+
+    const sanitized = sanitizeStoredFilters(schema, filterInputs)
+    saveStoredFilterState(dataType, customerId, sanitized)
+  }, [customerId, dataType, filterInputs, schema])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
