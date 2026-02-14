@@ -19,6 +19,8 @@ const DATA_TYPES: DataType[] = [
   'user_activities',
 ]
 
+const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
+
 type FilterInputState = Record<string, string | { min?: string; max?: string }>
 
 function asStringValue(value: FilterInputState[string]): string {
@@ -75,6 +77,41 @@ function buildFilters(schema: DataTypeSchema | null, values: FilterInputState): 
   return Object.keys(filters).length > 0 ? filters : undefined
 }
 
+function loadStoredColumns(dataType: DataType): string[] | null {
+  try {
+    const raw = window.localStorage.getItem(COLUMN_SETTINGS_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const candidate = parsed[dataType]
+
+    if (!Array.isArray(candidate)) {
+      return null
+    }
+
+    return candidate.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  } catch {
+    return null
+  }
+}
+
+function saveStoredColumns(dataType: DataType, columns: string[]): void {
+  try {
+    const raw = window.localStorage.getItem(COLUMN_SETTINGS_STORAGE_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+    const next = {
+      ...parsed,
+      [dataType]: columns,
+    }
+
+    window.localStorage.setItem(COLUMN_SETTINGS_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
 function App() {
   const [dataType, setDataType] = useState<DataType>('api_usage_logs')
   const [customerId, setCustomerId] = useState('')
@@ -120,7 +157,20 @@ function App() {
 
         setSchema(result)
         setFilterInputs({})
-        setSelectedColumns(result.columns.map((column) => column.key))
+        const schemaColumns = result.columns.map((column) => column.key)
+        const schemaColumnSet = new Set(schemaColumns)
+        const stored = loadStoredColumns(dataType)
+
+        if (stored && stored.length > 0) {
+          const validStoredColumns = stored.filter((column) => schemaColumnSet.has(column))
+          if (validStoredColumns.length > 0) {
+            setSelectedColumns(validStoredColumns)
+          } else {
+            setSelectedColumns(schemaColumns)
+          }
+        } else {
+          setSelectedColumns(schemaColumns)
+        }
       } catch (error) {
         if (!active) {
           return
@@ -208,6 +258,21 @@ function App() {
       return [...prev, columnKey]
     })
   }
+
+  useEffect(() => {
+    if (!schema || selectedColumns.length === 0) {
+      return
+    }
+
+    const schemaColumnSet = new Set(schema.columns.map((column) => column.key))
+    const validColumns = selectedColumns.filter((column) => schemaColumnSet.has(column))
+
+    if (validColumns.length === 0) {
+      return
+    }
+
+    saveStoredColumns(dataType, validColumns)
+  }, [dataType, schema, selectedColumns])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
