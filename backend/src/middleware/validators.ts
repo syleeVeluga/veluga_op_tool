@@ -20,26 +20,37 @@ const queryFilterValueSchema = z.union([
   rangeFilterValueSchema,
 ]);
 
-const queryRequestSchema = z.object({
-  dataType: z.string().refine((value) => isDataType(value), {
-    message: "Unsupported dataType",
-  }),
-  customerId: z.string().trim().min(1),
-  dateRange: z.object({
-    start: z.string().min(1),
-    end: z.string().min(1),
-  }),
-  filters: z.record(z.string(), queryFilterValueSchema).optional(),
-  columns: z.array(z.string().min(1)).optional(),
-  pageSize: z.coerce.number().int().positive().max(env.MAX_EXPORT_ROWS).optional(),
-  includeTotal: z.boolean().optional(),
-  cursor: z
-    .object({
-      afterTs: z.string().min(1),
-      afterId: z.string().min(1),
-    })
-    .optional(),
-});
+const queryRequestSchema = z
+  .object({
+    dataType: z.string().refine((value) => isDataType(value), {
+      message: "Unsupported dataType",
+    }),
+    customerId: z.string().trim().min(1).optional(),
+    customerIds: z.array(z.string().trim().min(1)).min(1).max(1000).optional(),
+    dateRange: z.object({
+      start: z.string().min(1),
+      end: z.string().min(1),
+    }),
+    filters: z.record(z.string(), queryFilterValueSchema).optional(),
+    columns: z.array(z.string().min(1)).optional(),
+    pageSize: z.coerce.number().int().positive().max(env.MAX_EXPORT_ROWS).optional(),
+    includeTotal: z.boolean().optional(),
+    cursor: z
+      .object({
+        afterTs: z.string().min(1),
+        afterId: z.string().min(1),
+      })
+      .optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.customerId && (!value.customerIds || value.customerIds.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "customerId or customerIds is required",
+        path: ["customerId"],
+      });
+    }
+  });
 
 const conversationBatchRequestSchema = z.object({
   channelIds: z.array(z.string().trim().min(1)).min(1).max(500),

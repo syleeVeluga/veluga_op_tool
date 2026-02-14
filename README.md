@@ -54,6 +54,8 @@
   - 필터/조회/결과 테이블 렌더링
   - 결과 컬럼 선택 및 localStorage 상태 저장
   - CSV/JSON 클라이언트 다운로드(선택 컬럼 기준)
+  - 운영자 가이드: dataType별 식별자 키 안내
+  - partner ID 기반 사용자 확장 조회(`users.members`)
 
 미구현(다음 단계):
 
@@ -126,6 +128,18 @@ npm run dev
 ```
 
 기본 URL: `http://localhost:5173`
+
+### 운영자 조회 팁 (ID 확보)
+
+- 사용자 이메일/이름 → `고객 검색(자동완성)`으로 사용자 ID(`customerId`) 선택
+- partner ID(파트너 대표 사용자 ID) → `Partner ID 기반 사용자 확장`으로 `users.members` 포함 사용자 ID 묶음 조회
+- 묶음 조회는 현재 `conversations`, `api_usage_logs`, `billing_logs`에서 지원
+
+백엔드 기준 관련 API:
+
+- `GET /api/customers/search?q=`: 이메일/이름/ID로 사용자 검색
+- `GET /api/customers/by-partner?partnerId=`: partner 기준 사용자 ID 묶음 해석
+- `POST /api/data/query`: `customerId`(단일) 또는 `customerIds`(배열) 중 하나로 조회
 
 ### Playwright로 프론트 확인
 
@@ -231,6 +245,11 @@ docker build -t log-csv-api:local .
 - `main` 브랜치에 `backend/**` 변경 푸시 시 자동 배포
 - 워크플로우: `.github/workflows/deploy-backend-cloudrun.yml`
 - 필요 시 GitHub Secret: `GCP_SA_KEY`
+- `main` 브랜치에 `frontend/**` 변경 푸시 시 GitHub Pages 자동 배포
+- 워크플로우: `.github/workflows/deploy-frontend-pages.yml`
+- GitHub Repository Variables 권장값:
+  - `VITE_API_BASE_URL=https://<cloud-run-service-url>/api`
+  - `VITE_BASE_PATH=/` (메인 루트 배포)
 
 ## 7) 운영 중 서비스
 

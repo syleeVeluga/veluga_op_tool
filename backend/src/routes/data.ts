@@ -17,7 +17,10 @@ import {
   queryConversationsInBatches,
   type ConversationBatchRequest,
 } from "../services/conversationBatchQuery";
-import { searchCustomers } from "../services/customerSearch";
+import {
+  resolveCustomersByPartnerId,
+  searchCustomers,
+} from "../services/customerSearch";
 import { getSchemaByDataType } from "../services/schemaProvider";
 import {
   getPeriodSummary,
@@ -66,6 +69,31 @@ dataRouter.get("/customers/search", async (req, res) => {
     res.status(500).json({
       error: "customer_search_failed",
       message: "Failed to search customers",
+      detail: error instanceof Error ? error.message : "unknown error",
+    });
+  }
+});
+
+dataRouter.get("/customers/by-partner", async (req, res) => {
+  const rawPartnerId =
+    typeof req.query.partnerId === "string" ? req.query.partnerId : "";
+  const partnerId = rawPartnerId.trim();
+
+  if (!partnerId) {
+    res.status(400).json({
+      error: "invalid_partner_id",
+      message: "partnerId is required",
+    });
+    return;
+  }
+
+  try {
+    const result = await resolveCustomersByPartnerId(partnerId);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: "partner_customer_resolve_failed",
+      message: "Failed to resolve customers by partnerId",
       detail: error instanceof Error ? error.message : "unknown error",
     });
   }

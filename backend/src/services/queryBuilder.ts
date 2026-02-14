@@ -24,7 +24,8 @@ export type QueryFilterValue =
 
 export interface QueryRequest {
   dataType: DataType;
-  customerId: string;
+  customerId?: string;
+  customerIds?: string[];
   dateRange: DateRangeInput;
   filters?: Record<string, QueryFilterValue | undefined>;
   columns?: string[];
@@ -175,7 +176,16 @@ function buildBaseMatch(request: QueryRequest): { match: Document; timestampFiel
   const schema = schemaRegistry[request.dataType];
   const { customerField, timestampField, filters: schemaFilters, columns: schemaColumns } = schema;
 
-  assertNonEmptyString(request.customerId, "customerId");
+  const normalizedCustomerId = request.customerId?.trim();
+  const normalizedCustomerIds =
+    request.customerIds
+      ?.map((item) => item.trim())
+      .filter((item) => item.length > 0) ?? [];
+
+  if (!normalizedCustomerId && normalizedCustomerIds.length === 0) {
+    throw new Error("customerId or customerIds is required");
+  }
+
   assertNonEmptyString(request.dateRange?.start ?? "", "dateRange.start");
   assertNonEmptyString(request.dateRange?.end ?? "", "dateRange.end");
 
@@ -186,8 +196,13 @@ function buildBaseMatch(request: QueryRequest): { match: Document; timestampFiel
     throw new Error("dateRange.start must be before or equal to dateRange.end");
   }
 
+  const customerCondition: Document | string =
+    normalizedCustomerIds.length > 0
+      ? { $in: Array.from(new Set(normalizedCustomerIds)) }
+      : (normalizedCustomerId as string);
+
   const match: Document = {
-    [customerField]: request.customerId,
+    [customerField]: customerCondition,
     [timestampField]: {
       $gte: startedAt,
       $lte: endedAt,

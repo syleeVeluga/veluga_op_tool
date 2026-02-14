@@ -7,6 +7,7 @@ import {
   type QueryFilterValue,
   fetchSchema,
   postDataQuery,
+  resolveCustomersByPartnerId,
   searchCustomers,
 } from './lib/api'
 
@@ -18,6 +19,73 @@ const DATA_TYPES: DataType[] = [
   'billing_logs',
   'user_activities',
 ]
+
+interface DataTypeGuide {
+  label: string
+  description: string
+  customerKey: string
+  customerInputHint: string
+  customerExample: string
+  supportsUserLookup: boolean
+  supportsPartnerLookup: boolean
+}
+
+const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
+  conversations: {
+    label: '대화 로그',
+    description: '채팅/대화 단위 로그를 조회합니다.',
+    customerKey: 'creator (사용자 ID)',
+    customerInputHint: '사용자 ID가 필요합니다. 이메일/이름을 알면 아래 고객 검색으로 찾을 수 있습니다.',
+    customerExample: '예: 65f0c1e2d3a4b5c6d7e8f901',
+    supportsUserLookup: true,
+    supportsPartnerLookup: true,
+  },
+  api_usage_logs: {
+    label: 'API 사용 로그',
+    description: '토큰/크레딧 사용량 중심 로그를 조회합니다.',
+    customerKey: 'creator (사용자 ID)',
+    customerInputHint: '사용자 ID가 필요합니다. 이메일/이름으로 고객 검색 후 자동 입력할 수 있습니다.',
+    customerExample: '예: 65f0c1e2d3a4b5c6d7e8f901',
+    supportsUserLookup: true,
+    supportsPartnerLookup: true,
+  },
+  event_logs: {
+    label: '이벤트 로그',
+    description: '서비스 이벤트/행동성 로그를 조회합니다.',
+    customerKey: 'user_id',
+    customerInputHint: 'user_id를 입력하세요. 운영자가 알고 있는 사용자 ID를 그대로 사용합니다.',
+    customerExample: '예: user_123456',
+    supportsUserLookup: false,
+    supportsPartnerLookup: false,
+  },
+  error_logs: {
+    label: '에러 로그',
+    description: '오류/예외 중심 로그를 조회합니다.',
+    customerKey: 'ip',
+    customerInputHint: '이 데이터 타입은 고객 식별값으로 IP를 사용합니다.',
+    customerExample: '예: 203.0.113.10',
+    supportsUserLookup: false,
+    supportsPartnerLookup: false,
+  },
+  billing_logs: {
+    label: '결제/플랜 이력',
+    description: '구독/플랜 변경 및 만료 관련 로그를 조회합니다.',
+    customerKey: 'user (사용자 ID)',
+    customerInputHint: '사용자 ID가 필요합니다. 이메일/이름으로 고객 검색 후 입력 가능합니다.',
+    customerExample: '예: 65f0c1e2d3a4b5c6d7e8f901',
+    supportsUserLookup: true,
+    supportsPartnerLookup: true,
+  },
+  user_activities: {
+    label: '사용자 활동 로그',
+    description: '세션/채널 기반 활동 로그를 조회합니다.',
+    customerKey: 'channel',
+    customerInputHint: '운영자가 알고 있는 채널 ID를 Customer ID에 그대로 입력하세요.',
+    customerExample: '예: channel_abc123',
+    supportsUserLookup: false,
+    supportsPartnerLookup: false,
+  },
+}
 
 const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
 const QUERY_SETTINGS_STORAGE_KEY = 'user-log-dashboard:query-settings:v1'
@@ -364,6 +432,11 @@ function App() {
   const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
   const [customerLoading, setCustomerLoading] = useState(false)
   const [customerError, setCustomerError] = useState<string | null>(null)
+  const [partnerId, setPartnerId] = useState('')
+  const [partnerCustomerIds, setPartnerCustomerIds] = useState<string[]>([])
+  const [partnerCustomers, setPartnerCustomers] = useState<CustomerSearchItem[]>([])
+  const [partnerResolveLoading, setPartnerResolveLoading] = useState(false)
+  const [partnerResolveError, setPartnerResolveError] = useState<string | null>(null)
   const [startAt, setStartAt] = useState(initialQuerySettings.startAt)
   const [endAt, setEndAt] = useState(initialQuerySettings.endAt)
   const [pageSize, setPageSize] = useState(initialQuerySettings.pageSize)
@@ -383,6 +456,9 @@ function App() {
   const [queryError, setQueryError] = useState<string | null>(null)
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [exportNotice, setExportNotice] = useState<string | null>(null)
+
+  const selectedGuide = DATA_TYPE_GUIDE[dataType]
+  const isPartnerResolvedMode = selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
 
   const availableColumns = useMemo(() => {
     if (rows.length > 0) {
@@ -429,6 +505,36 @@ function App() {
       setExportNotice(`${formatLabel} 파일 다운로드를 시작했습니다.`)
     } catch {
       setExportNotice(`${formatLabel} 내보내기에 실패했습니다. 다시 시도해 주세요.`)
+    }
+  }
+
+  const onResolvePartnerUsers = async () => {
+    const normalizedPartnerId = partnerId.trim()
+
+    if (!normalizedPartnerId) {
+      setPartnerResolveError('partner ID를 입력해 주세요.')
+      setPartnerCustomerIds([])
+      setPartnerCustomers([])
+      return
+    }
+
+    setPartnerResolveLoading(true)
+    setPartnerResolveError(null)
+
+    try {
+      const result = await resolveCustomersByPartnerId(normalizedPartnerId)
+      setPartnerCustomerIds(result.customerIds)
+      setPartnerCustomers(result.customers)
+
+      if (result.customerIds.length === 0) {
+        setPartnerResolveError('해당 partner ID로 조회 가능한 사용자 ID를 찾지 못했습니다.')
+      }
+    } catch (error) {
+      setPartnerCustomerIds([])
+      setPartnerCustomers([])
+      setPartnerResolveError(error instanceof Error ? error.message : 'partner ID 조회 실패')
+    } finally {
+      setPartnerResolveLoading(false)
     }
   }
 
@@ -489,7 +595,30 @@ function App() {
   }, [dataType])
 
   useEffect(() => {
+    if (DATA_TYPE_GUIDE[dataType].supportsUserLookup) {
+      return
+    }
+
+    setCustomerQuery('')
+    setCustomerOptions([])
+    setCustomerError(null)
+    setCustomerLoading(false)
+    setPartnerId('')
+    setPartnerCustomerIds([])
+    setPartnerCustomers([])
+    setPartnerResolveError(null)
+    setPartnerResolveLoading(false)
+  }, [dataType])
+
+  useEffect(() => {
     const keyword = customerQuery.trim()
+
+    if (!selectedGuide.supportsUserLookup) {
+      setCustomerOptions([])
+      setCustomerLoading(false)
+      setCustomerError(null)
+      return
+    }
 
     if (keyword.length < 2) {
       setCustomerOptions([])
@@ -526,7 +655,7 @@ function App() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [customerQuery])
+  }, [customerQuery, selectedGuide.supportsUserLookup])
 
   const toggleColumn = (columnKey: string) => {
     setSelectedColumns((prev) => {
@@ -579,8 +708,14 @@ function App() {
     event.preventDefault()
 
     const normalizedCustomerId = customerId.trim()
+    const normalizedCustomerIds = partnerCustomerIds
     const requestStart = toIsoString(startAt)
     const requestEnd = toIsoString(endAt)
+
+    if (!normalizedCustomerId && normalizedCustomerIds.length === 0) {
+      setQueryError('Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.')
+      return
+    }
 
     setQueryLoading(true)
     setQueryError(null)
@@ -589,7 +724,9 @@ function App() {
     try {
       const result = await postDataQuery({
         dataType,
-        customerId: normalizedCustomerId,
+        ...(normalizedCustomerIds.length > 0
+          ? { customerIds: normalizedCustomerIds }
+          : { customerId: normalizedCustomerId }),
         dateRange: {
           start: requestStart,
           end: requestEnd,
@@ -607,7 +744,10 @@ function App() {
         id: `${Date.now()}-success`,
         executedAt: new Date().toISOString(),
         dataType,
-        customerId: normalizedCustomerId,
+        customerId:
+          normalizedCustomerIds.length > 0
+            ? `partner:${partnerId.trim()} (${normalizedCustomerIds.length} users)`
+            : normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
         pageSize,
@@ -627,7 +767,10 @@ function App() {
         id: `${Date.now()}-failed`,
         executedAt: new Date().toISOString(),
         dataType,
-        customerId: normalizedCustomerId,
+        customerId:
+          normalizedCustomerIds.length > 0
+            ? `partner:${partnerId.trim()} (${normalizedCustomerIds.length} users)`
+            : normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
         pageSize,
@@ -665,11 +808,17 @@ function App() {
               >
                 {DATA_TYPES.map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {DATA_TYPE_GUIDE[item].label} ({item})
                   </option>
                 ))}
               </select>
             </label>
+
+            <div className="rounded-md border bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Data Type 안내</div>
+              <p className="mt-1 text-xs text-slate-600">{selectedGuide.description}</p>
+              <p className="mt-1 text-xs text-slate-600">조회 식별자 키: {selectedGuide.customerKey}</p>
+            </div>
 
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-600">Customer ID</span>
@@ -677,46 +826,100 @@ function App() {
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
-                placeholder="customerId 입력"
-                required
+                placeholder={selectedGuide.customerExample}
+                required={!isPartnerResolvedMode}
               />
+              <div className="mt-1 text-xs text-slate-500">{selectedGuide.customerInputHint}</div>
             </label>
 
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
-              <input
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                value={customerQuery}
-                onChange={(e) => setCustomerQuery(e.target.value)}
-                placeholder="이름/이메일/ID 2글자 이상"
-              />
-              <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
-              {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
-              {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
-              {!customerLoading && customerOptions.length > 0 && (
-                <ul className="mt-2 max-h-40 overflow-auto rounded-md border bg-white">
-                  {customerOptions.map((customer) => (
-                    <li key={customer.id}>
-                      <button
-                        type="button"
-                        className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100"
-                        onClick={() => {
-                          setCustomerId(customer.id)
-                          setCustomerQuery('')
-                          setCustomerOptions([])
-                        }}
-                      >
-                        <div className="font-medium text-slate-800">{customer.id}</div>
-                        <div className="text-slate-500">
-                          {customer.name || '-'}
+            {selectedGuide.supportsPartnerLookup && (
+              <div className="space-y-2 rounded-md border bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-700">Partner ID 기반 사용자 확장</div>
+                <div className="flex gap-2">
+                  <input
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    value={partnerId}
+                    onChange={(e) => {
+                      setPartnerId(e.target.value)
+                      setPartnerCustomerIds([])
+                      setPartnerCustomers([])
+                      setPartnerResolveError(null)
+                    }}
+                    placeholder="partner ID 입력 (users._id)"
+                  />
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={onResolvePartnerUsers}
+                    disabled={partnerResolveLoading}
+                  >
+                    {partnerResolveLoading ? '확인 중...' : '사용자 불러오기'}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">partner ID를 기준으로 users.members 목록을 customerIds로 확장해 일괄 조회합니다.</p>
+                {partnerResolveError && <p className="text-xs text-red-600">{partnerResolveError}</p>}
+                {!partnerResolveError && partnerCustomerIds.length > 0 && (
+                  <p className="text-xs text-emerald-700">조회 대상 사용자 {partnerCustomerIds.length}명 로드됨</p>
+                )}
+                {partnerCustomers.length > 0 && (
+                  <div className="max-h-24 overflow-auto rounded-md border bg-white p-2">
+                    <ul className="space-y-1 text-xs text-slate-600">
+                      {partnerCustomers.slice(0, 20).map((customer) => (
+                        <li key={customer.id}>
+                          {customer.id}
                           {customer.email ? ` · ${customer.email}` : ''}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {partnerCustomers.length > 20 && (
+                      <p className="mt-1 text-[11px] text-slate-500">외 {partnerCustomers.length - 20}명</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedGuide.supportsUserLookup ? (
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
+                <input
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder="이름/이메일/ID 2글자 이상"
+                />
+                <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
+                {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
+                {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
+                {!customerLoading && customerOptions.length > 0 && (
+                  <ul className="mt-2 max-h-40 overflow-auto rounded-md border bg-white">
+                    {customerOptions.map((customer) => (
+                      <li key={customer.id}>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100"
+                          onClick={() => {
+                            setCustomerId(customer.id)
+                            setCustomerQuery('')
+                            setCustomerOptions([])
+                          }}
+                        >
+                          <div className="font-medium text-slate-800">{customer.id}</div>
+                          <div className="text-slate-500">
+                            {customer.name || '-'}
+                            {customer.email ? ` · ${customer.email}` : ''}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </label>
+            ) : (
+              <div className="rounded-md border border-dashed bg-white p-3 text-xs text-slate-600">
+                이 데이터 타입은 자동완성 검색 대신 운영자가 알고 있는 식별값을 직접 입력해 조회합니다.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">

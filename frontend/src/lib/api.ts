@@ -35,7 +35,8 @@ export type QueryFilterValue =
 
 export interface QueryRequestPayload {
   dataType: DataType
-  customerId: string
+  customerId?: string
+  customerIds?: string[]
   dateRange: {
     start: string
     end: string
@@ -64,6 +65,12 @@ export interface CustomerSearchItem {
 }
 
 export interface CustomerSearchResponse {
+  customers: CustomerSearchItem[]
+}
+
+export interface PartnerCustomerResolveResponse {
+  partnerId: string
+  customerIds: string[]
   customers: CustomerSearchItem[]
 }
 
@@ -102,4 +109,9 @@ export function postDataQuery(payload: QueryRequestPayload): Promise<QueryRespon
 export function searchCustomers(query: string): Promise<CustomerSearchResponse> {
   const encoded = encodeURIComponent(query)
   return requestJson<CustomerSearchResponse>(`/customers/search?q=${encoded}`)
+}
+
+export function resolveCustomersByPartnerId(partnerId: string): Promise<PartnerCustomerResolveResponse> {
+  const encoded = encodeURIComponent(partnerId)
+  return requestJson<PartnerCustomerResolveResponse>(`/customers/by-partner?partnerId=${encoded}`)
 }
