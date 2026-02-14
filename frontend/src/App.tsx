@@ -197,6 +197,20 @@ interface StoredFilterState {
   filters: FilterInputState
 }
 
+interface QueryHistoryItem {
+  id: string
+  executedAt: string
+  dataType: DataType
+  customerId: string
+  rangeStart: string
+  rangeEnd: string
+  pageSize: number
+  status: 'success' | 'failed'
+  rowCount: number
+  total?: number
+  errorMessage?: string
+}
+
 function loadStoredFilterState(dataType: DataType): StoredFilterState | null {
   try {
     const raw = window.localStorage.getItem(FILTER_SETTINGS_STORAGE_KEY)
@@ -304,6 +318,7 @@ function App() {
   const [hasMore, setHasMore] = useState(false)
   const [queryLoading, setQueryLoading] = useState(false)
   const [queryError, setQueryError] = useState<string | null>(null)
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
 
   useEffect(() => {
     let active = true
@@ -467,16 +482,20 @@ function App() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    const normalizedCustomerId = customerId.trim()
+    const requestStart = toIsoString(startAt)
+    const requestEnd = toIsoString(endAt)
+
     setQueryLoading(true)
     setQueryError(null)
 
     try {
       const result = await postDataQuery({
         dataType,
-        customerId: customerId.trim(),
+        customerId: normalizedCustomerId,
         dateRange: {
-          start: toIsoString(startAt),
-          end: toIsoString(endAt),
+          start: requestStart,
+          end: requestEnd,
         },
         filters: buildFilters(schema, filterInputs),
         columns: selectedColumns,
@@ -487,11 +506,40 @@ function App() {
       setRows(result.rows)
       setTotal(result.total)
       setHasMore(result.hasMore)
+      const historyItem: QueryHistoryItem = {
+        id: `${Date.now()}-success`,
+        executedAt: new Date().toISOString(),
+        dataType,
+        customerId: normalizedCustomerId,
+        rangeStart: requestStart,
+        rangeEnd: requestEnd,
+        pageSize,
+        status: 'success',
+        rowCount: result.rows.length,
+        total: result.total,
+      }
+
+      setQueryHistory((prev) => [historyItem, ...prev].slice(0, 10))
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '조회 실패'
       setRows([])
       setTotal(undefined)
       setHasMore(false)
-      setQueryError(error instanceof Error ? error.message : '조회 실패')
+      setQueryError(errorMessage)
+      const historyItem: QueryHistoryItem = {
+        id: `${Date.now()}-failed`,
+        executedAt: new Date().toISOString(),
+        dataType,
+        customerId: normalizedCustomerId,
+        rangeStart: requestStart,
+        rangeEnd: requestEnd,
+        pageSize,
+        status: 'failed',
+        rowCount: 0,
+        errorMessage,
+      }
+
+      setQueryHistory((prev) => [historyItem, ...prev].slice(0, 10))
     } finally {
       setQueryLoading(false)
     }
@@ -732,6 +780,26 @@ function App() {
               {typeof total === 'number' ? ` / total: ${total}` : ''}
               {hasMore ? ' / hasMore: true' : ''}
             </div>
+          </div>
+
+          <div className="mb-3 rounded-md border bg-slate-50 p-3">
+            <div className="mb-2 text-xs font-semibold text-slate-700">실행 이력 (최근 10건)</div>
+            {queryHistory.length === 0 ? (
+              <p className="text-xs text-slate-500">아직 실행 이력이 없습니다.</p>
+            ) : (
+              <ul className="space-y-1">
+                {queryHistory.map((item) => (
+                  <li key={item.id} className="text-xs text-slate-700">
+                    <span className={item.status === 'success' ? 'text-emerald-600' : 'text-red-600'}>
+                      [{item.status}]
+                    </span>{' '}
+                    {new Date(item.executedAt).toLocaleString()} · {item.dataType} · {item.customerId || '-'} · rows {item.rowCount}
+                    {typeof item.total === 'number' ? ` / total ${item.total}` : ''}
+                    {item.errorMessage ? ` · ${item.errorMessage}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {availableColumns.length > 0 && (
