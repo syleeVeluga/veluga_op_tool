@@ -347,11 +347,6 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     setChannelError(null)
     setChannelOptions([])
 
-    const filters = buildFilters(schema, filterInputs)
-    if (filters && channelFilterKey in filters) {
-      delete filters[channelFilterKey]
-    }
-
     try {
       const result = await postDataQuery({
         dataType,
@@ -362,7 +357,6 @@ export function LogDashboard({ mode }: LogDashboardProps) {
           start: toIsoString(startAt),
           end: toIsoString(endAt),
         },
-        filters,
         columns: [channelFilterKey],
         pageSize: 1000,
         includeTotal: false,
@@ -573,7 +567,14 @@ export function LogDashboard({ mode }: LogDashboardProps) {
                         className="w-full rounded-md border px-3 py-2 text-sm"
                         value={customerId}
                         onChange={(e) => {
-                        setCustomerId(e.target.value)
+                        const nextCustomerId = e.target.value
+                        setCustomerId(nextCustomerId)
+                        if (nextCustomerId.trim().length > 0) {
+                          setPartnerCustomerIds([])
+                          setPartnerCustomers([])
+                          setPartnerResolveError(null)
+                        }
+                        setCustomerError(null)
                         setChannelOptions([])
                         setChannelError(null)
                         }}
@@ -703,7 +704,10 @@ export function LogDashboard({ mode }: LogDashboardProps) {
                   type="datetime-local"
                   className="w-full rounded-md border px-3 py-2 text-sm"
                   value={startAt}
-                  onChange={(e) => setStartAt(e.target.value)}
+                  onChange={(e) => {
+                    setStartAt(e.target.value)
+                    e.currentTarget.blur()
+                  }}
                   required
                 />
               </label>
@@ -714,7 +718,10 @@ export function LogDashboard({ mode }: LogDashboardProps) {
                   type="datetime-local"
                   className="w-full rounded-md border px-3 py-2 text-sm"
                   value={endAt}
-                  onChange={(e) => setEndAt(e.target.value)}
+                  onChange={(e) => {
+                    setEndAt(e.target.value)
+                    e.currentTarget.blur()
+                  }}
                   required
                 />
               </label>
