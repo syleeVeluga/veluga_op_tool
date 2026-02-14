@@ -114,9 +114,11 @@ function saveStoredColumns(dataType: DataType, columns: string[]): void {
 }
 
 interface QueryUiSettings {
+  dataType: DataType
   startAt: string
   endAt: string
   pageSize: number
+  includeTotal: boolean
 }
 
 function getDefaultQueryUiSettings(): QueryUiSettings {
@@ -125,9 +127,11 @@ function getDefaultQueryUiSettings(): QueryUiSettings {
   before.setDate(before.getDate() - 7)
 
   return {
+    dataType: 'api_usage_logs',
     startAt: toDatetimeLocalValue(before),
     endAt: toDatetimeLocalValue(now),
     pageSize: 100,
+    includeTotal: true,
   }
 }
 
@@ -141,6 +145,11 @@ function loadStoredQueryUiSettings(): QueryUiSettings {
     }
 
     const parsed = JSON.parse(raw) as Record<string, unknown>
+
+    const dataTypeCandidate = typeof parsed.dataType === 'string' ? parsed.dataType : defaults.dataType
+    const safeDataType = DATA_TYPES.includes(dataTypeCandidate as DataType)
+      ? (dataTypeCandidate as DataType)
+      : defaults.dataType
 
     const startCandidate = typeof parsed.startAt === 'string' ? parsed.startAt : defaults.startAt
     const endCandidate = typeof parsed.endAt === 'string' ? parsed.endAt : defaults.endAt
@@ -156,10 +165,18 @@ function loadStoredQueryUiSettings(): QueryUiSettings {
       ? parsedPageSize
       : defaults.pageSize
 
+    const includeTotalCandidate = parsed.includeTotal
+    const safeIncludeTotal =
+      typeof includeTotalCandidate === 'boolean'
+        ? includeTotalCandidate
+        : defaults.includeTotal
+
     return {
+      dataType: safeDataType,
       startAt: startCandidate,
       endAt: endCandidate,
       pageSize: safePageSize,
+      includeTotal: safeIncludeTotal,
     }
   } catch {
     return defaults
@@ -177,7 +194,7 @@ function saveStoredQueryUiSettings(settings: QueryUiSettings): void {
 function App() {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
-  const [dataType, setDataType] = useState<DataType>('api_usage_logs')
+  const [dataType, setDataType] = useState<DataType>(initialQuerySettings.dataType)
   const [customerId, setCustomerId] = useState('')
   const [customerQuery, setCustomerQuery] = useState('')
   const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
@@ -186,7 +203,7 @@ function App() {
   const [startAt, setStartAt] = useState(initialQuerySettings.startAt)
   const [endAt, setEndAt] = useState(initialQuerySettings.endAt)
   const [pageSize, setPageSize] = useState(initialQuerySettings.pageSize)
-  const [includeTotal, setIncludeTotal] = useState(true)
+  const [includeTotal, setIncludeTotal] = useState(initialQuerySettings.includeTotal)
 
   const [schema, setSchema] = useState<DataTypeSchema | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -335,11 +352,13 @@ function App() {
 
   useEffect(() => {
     saveStoredQueryUiSettings({
+      dataType,
       startAt,
       endAt,
       pageSize,
+      includeTotal,
     })
-  }, [startAt, endAt, pageSize])
+  }, [dataType, startAt, endAt, pageSize, includeTotal])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
