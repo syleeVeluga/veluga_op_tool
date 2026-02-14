@@ -172,6 +172,21 @@ function resolveCursorCondition(timestampField: string, cursor: QueryCursor | un
   };
 }
 
+function expandCustomerIds(ids: string[]): Array<string | ObjectId> {
+  const expanded = new Map<string, string | ObjectId>();
+
+  for (const id of ids) {
+    expanded.set(`str:${id}`, id);
+
+    if (ObjectId.isValid(id)) {
+      const objectId = new ObjectId(id);
+      expanded.set(`oid:${objectId.toHexString()}`, objectId);
+    }
+  }
+
+  return Array.from(expanded.values());
+}
+
 function buildBaseMatch(request: QueryRequest): { match: Document; timestampField: string; projection: Document; limit: number } {
   const schema = schemaRegistry[request.dataType];
   const { customerField, timestampField, filters: schemaFilters, columns: schemaColumns } = schema;
@@ -196,10 +211,14 @@ function buildBaseMatch(request: QueryRequest): { match: Document; timestampFiel
     throw new Error("dateRange.start must be before or equal to dateRange.end");
   }
 
-  const customerCondition: Document | string =
+  const requestedCustomerIds =
     normalizedCustomerIds.length > 0
-      ? { $in: Array.from(new Set(normalizedCustomerIds)) }
-      : (normalizedCustomerId as string);
+      ? Array.from(new Set(normalizedCustomerIds))
+      : [normalizedCustomerId as string];
+
+  const customerCondition: Document = {
+    $in: expandCustomerIds(requestedCustomerIds),
+  };
 
   const match: Document = {
     [customerField]: customerCondition,
