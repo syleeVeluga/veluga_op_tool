@@ -79,6 +79,30 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 
 > 전체 시스템의 핵심 기반 모듈
 
+### 2-0. Production 무영향 스키마 실사 (선행 게이트)
+- [x] `backend/scripts/profile-mongo-readonly.cjs`로 컬렉션/샘플 키/추정 건수 수집
+- [ ] 원칙: Read-Only 쿼리만 사용 (insert/update/delete/index 작업 금지)
+- [ ] 연결 옵션: `readPreference=secondaryPreferred`, `maxTimeMS` 적용
+- [x] 산출물: `backend/reports/mongo-profile-*.json`
+- [ ] 실사 결과 기준으로 dataType ↔ collection 매핑 및 필터 정의 확정
+
+#### 2-0 실사 결과 (2026-02-14, 제한 샘플)
+- DNS 우회 옵션(`MONGO_PROFILE_DNS_SERVERS=8.8.8.8,1.1.1.1`) 사용 시 read-only 프로파일링 성공
+- `logdb.logentrydbs` 확인: 약 681만건, 키 `serverType/serviceType/action/category/details/timestamp/channel_id`
+- `prod.sessions` 확인: 약 341만건, 키 `channel/participants/lastChat/createdAt/updatedAt`
+- `prod.weburls` 확인: 약 1.1만건, 키 `domain/path/inputUrl/state/startTrainingAt/endTrainingAt`
+- full-scan 완료: `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json` (`prod` 58개, `logdb` 2개)
+
+#### 2-0 실측 기반 dataType 매핑 초안
+- `conversations` → `prod.chats` (보조: `prod.sessions`)
+- `api_usage_logs` → `prod.usagelogs`
+- `event_logs` → `logdb.logentrydbs` (필터: `serverType`, `serviceType`, `action`, `category`)
+- `error_logs` → `prod.errorlogs`
+- `billing_logs` → `prod.userplans`, `prod.userplanhistories`
+- `user_activities` → `prod.sessions`, `prod.guests`
+
+> 주의: 매핑 확정 전 `customerId`에 해당하는 실제 식별자 키(`user`, `creator`, `channel`, `channel_id` 등)를 컬렉션별로 추가 검증해야 함.
+
 ### 2-1. 데이터 유형별 스키마 설정 파일
 - [ ] `backend/src/config/schema/conversations.ts`
   - collection: `conversations`, customerField: `userId`, timestampField: `timestamp`

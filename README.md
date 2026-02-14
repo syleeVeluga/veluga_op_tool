@@ -138,12 +138,39 @@ docker build -t log-csv-api:local .
 
 ## 8) 다음 우선순위
 
-1. `backend/src/config/env.ts` + `.env.example` 정리
-2. MongoDB 연결 레이어(`config/database.ts`) 추가
-3. 데이터 타입 스키마 + `queryBuilder.ts` 구현
+1. MongoDB 연결 레이어(`config/database.ts`) 추가
+2. dataType 스키마 파일 작성 (`chats`, `usagelogs`, `errorlogs`, `logentrydbs` 우선)
+3. `queryBuilder.ts` 구현 (식별자 키 매핑 검증 포함)
 4. `/api/data/query`, `/api/data/export-csv`, `/api/data/export-json` 구현
 5. 인증/권한(`auth.ts`, `authz.ts`) 구현
 6. 프론트엔드(Vite + React + Tailwind + shadcn/ui) 초기화
+
+### 무영향 스키마 실사 실행
+
+```powershell
+cd backend
+npm run profile:mongo:readonly
+```
+
+DNS 이슈가 있는 환경에서는 아래처럼 DNS 서버를 지정해 실행할 수 있습니다.
+
+```powershell
+cd backend
+$env:MONGO_PROFILE_DNS_SERVERS="8.8.8.8,1.1.1.1"
+npm run profile:mongo:readonly
+```
+
+동작 원칙:
+
+- Read-Only 조회만 수행 (쓰기/인덱스 변경 없음)
+- `readPreference: secondaryPreferred` 사용
+- `maxTimeMS`로 쿼리 제한
+- 결과는 로컬 파일 `backend/reports/mongo-profile-*.json`에 저장
+
+최근 full-scan 결과:
+
+- `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json`
+- `prod` 58개 컬렉션, `logdb` 2개 컬렉션 확인
 
 ---
 

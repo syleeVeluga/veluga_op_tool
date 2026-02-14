@@ -1,7 +1,7 @@
 # 프로젝트 진행 상황 — 고객 로그 데이터 추출 대시보드
 
 > 최종 갱신: 2026-02-14
-> 전체 진행률: ~5%
+> 전체 진행률: ~15%
 
 ---
 
@@ -9,8 +9,8 @@
 
 | Phase | 설명 | 상태 | 진행률 |
 |-------|------|------|--------|
-| Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 40% |
-| Phase 2 | 스키마 설정 + 쿼리 빌더 | ⬜ 미시작 | 0% |
+| Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 55% |
+| Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 20% |
 | Phase 3 | 백엔드 API 구현 | ⬜ 미시작 | 0% |
 | Phase 4 | 프론트엔드 레이아웃 + 필터 | ⬜ 미시작 | 0% |
 | Phase 5 | 프론트엔드 결과/다운로드 | ⬜ 미시작 | 0% |
@@ -41,6 +41,10 @@
   - prod DB, logdb DB 연결 문자열 보유
 - [x] .gitignore 설정 (.env*, node_modules, dist, build)
 - [x] .dockerignore 설정
+- [x] 환경변수 템플릿/로더 추가
+  - `backend/.env.example`
+  - `backend/src/config/env.ts` (Zod 기반 타입 검증)
+- [x] 서버에 env 로더 연동 (`backend/src/index.ts`)
 
 ---
 
@@ -48,16 +52,29 @@
 
 ### Phase 1 잔여
 - [ ] `shared/types/` — 공유 TypeScript 타입 정의
-- [ ] `backend/.env.example` — 환경변수 템플릿
-- [ ] `backend/src/config/env.ts` — 환경변수 로더
 - [ ] `frontend/` — React 프로젝트 초기화 (Vite + Tailwind + shadcn/ui)
-- [ ] 백엔드 추가 의존성: mongodb, jsonwebtoken, bcrypt, fast-csv, zod, dotenv
+- [ ] 백엔드 추가 의존성: jsonwebtoken, bcrypt, fast-csv
 - [ ] 백엔드 디렉토리 구조: routes/, services/, middleware/, models/, config/
 
 ### Phase 2 (다음 마일스톤)
+- [ ] **Production 무영향 스키마 실사**
+  - [x] 제한 실행 성공 (`maxCollections=10`, `sampleDocs=2`)
+  - [x] full-scan 실행 성공 (`maxCollections=500`, `sampleDocs=1`)
+  - [x] 결과 리포트 생성: `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json`
+  - [ ] dataType/필터/식별자 키 최종 확정
 - [ ] 6개 데이터 유형 스키마 설정 파일
 - [ ] queryBuilder.ts — 필터 → MongoDB Aggregation Pipeline 변환
 - [ ] 입력값 검증 (Zod 스키마)
+
+### 실측 요약 (full-scan)
+- `prod` DB: 58 collections
+- `logdb` DB: 2 collections (`logentrydbs`, `logentries`)
+- 대용량 우선 후보:
+  - `prod.sessions` (~341만)
+  - `prod.guests` (~282만)
+  - `prod.chats` (~45만)
+  - `prod.usagelogs` (~43만)
+  - `logdb.logentrydbs` (~681만)
 
 > 상세 내용은 DEVELOPMENT_PLAN.md 참조
 
