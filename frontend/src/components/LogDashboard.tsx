@@ -261,18 +261,84 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     }
   }
 
+  const resolveCustomerIdFromInputs = async (): Promise<string | null> => {
+    const normalizedCustomerId = customerId.trim()
+    if (normalizedCustomerId) {
+      return normalizedCustomerId
+    }
+
+    const keyword = customerQuery.trim()
+    if (!keyword) {
+      return null
+    }
+
+    if (keyword.length < 2) {
+      throw new Error('사용자명 검색은 2글자 이상 입력해 주세요.')
+    }
+
+    setCustomerLoading(true)
+    setCustomerError(null)
+
+    try {
+      const result = await searchCustomers(keyword)
+      const customers = result.customers
+      setCustomerOptions(customers)
+
+      if (customers.length === 0) {
+        throw new Error('입력한 사용자명으로 조회 가능한 사용자를 찾지 못했습니다.')
+      }
+
+      const normalizedKeyword = keyword.toLowerCase()
+      const exactMatch = customers.find((customer) => {
+        const id = customer.id.toLowerCase()
+        const name = (customer.name ?? '').trim().toLowerCase()
+        const email = (customer.email ?? '').trim().toLowerCase()
+        return id === normalizedKeyword || name === normalizedKeyword || email === normalizedKeyword
+      })
+
+      const resolvedCustomer =
+        exactMatch ?? (customers.length === 1 ? customers[0] : null)
+
+      if (!resolvedCustomer) {
+        throw new Error('동일 검색어 결과가 여러 건입니다. 자동완성 목록에서 사용자를 선택해 주세요.')
+      }
+
+      setCustomerId(resolvedCustomer.id)
+      return resolvedCustomer.id
+    } finally {
+      setCustomerLoading(false)
+    }
+  }
+
   const onLoadCustomerChannels = async () => {
     if (!channelFilterKey) {
       return
     }
 
-    const normalizedCustomerId = customerId.trim()
-    const normalizedCustomerIds = partnerCustomerIds
+    let normalizedCustomerId = customerId.trim()
+    const normalizedPartnerCustomerIds = partnerCustomerIds
       .map((item) => item.trim())
       .filter((item) => item.length > 0)
 
-    if (!normalizedCustomerId && normalizedCustomerIds.length === 0) {
-      setChannelError('Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.')
+    const effectiveCustomerIds =
+      normalizedCustomerId.length > 0 ? [] : normalizedPartnerCustomerIds
+
+    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+      try {
+        normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '사용자명 기반 ID 확인에 실패했습니다.'
+        setChannelError(message)
+        setCustomerError(message)
+        setChannelOptions([])
+        return
+      }
+    }
+
+    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+      const message = 'Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.'
+      setChannelError(message)
+      setCustomerError(message)
       setChannelOptions([])
       return
     }
@@ -289,8 +355,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     try {
       const result = await postDataQuery({
         dataType,
-        ...(normalizedCustomerIds.length > 0
-          ? { customerIds: normalizedCustomerIds }
+        ...(effectiveCustomerIds.length > 0
+          ? { customerIds: effectiveCustomerIds }
           : { customerId: normalizedCustomerId }),
         dateRange: {
           start: toIsoString(startAt),
@@ -324,13 +390,30 @@ export function LogDashboard({ mode }: LogDashboardProps) {
   }
 
   const executeQuery = async (overrideFilterInputs?: FilterInputState) => {
-    const normalizedCustomerId = customerId.trim()
-    const normalizedCustomerIds = partnerCustomerIds
+    let normalizedCustomerId = customerId.trim()
+    const normalizedPartnerCustomerIds = partnerCustomerIds
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+    const effectiveCustomerIds =
+      normalizedCustomerId.length > 0 ? [] : normalizedPartnerCustomerIds
     const requestStart = toIsoString(startAt)
     const requestEnd = toIsoString(endAt)
 
-    if (!normalizedCustomerId && normalizedCustomerIds.length === 0) {
-      setQueryError('Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.')
+    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+      try {
+        normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '사용자명 기반 ID 확인에 실패했습니다.'
+        setQueryError(message)
+        setCustomerError(message)
+        return
+      }
+    }
+
+    if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
+      const message = 'Customer ID 또는 Partner ID 기반 사용자 목록이 필요합니다.'
+      setQueryError(message)
+      setCustomerError(message)
       return
     }
 
@@ -341,8 +424,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
     try {
       const result = await postDataQuery({
         dataType,
-        ...(normalizedCustomerIds.length > 0
-          ? { customerIds: normalizedCustomerIds }
+        ...(effectiveCustomerIds.length > 0
+          ? { customerIds: effectiveCustomerIds }
           : { customerId: normalizedCustomerId }),
         dateRange: {
           start: requestStart,
@@ -362,8 +445,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         executedAt: new Date().toISOString(),
         dataType,
         customerId:
-          normalizedCustomerIds.length > 0
-            ? `partner:${partnerId.trim()} (${normalizedCustomerIds.length} users)`
+          effectiveCustomerIds.length > 0
+            ? `partner:${partnerId.trim()} (${effectiveCustomerIds.length} users)`
             : normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
@@ -385,8 +468,8 @@ export function LogDashboard({ mode }: LogDashboardProps) {
         executedAt: new Date().toISOString(),
         dataType,
         customerId:
-          normalizedCustomerIds.length > 0
-            ? `partner:${partnerId.trim()} (${normalizedCustomerIds.length} users)`
+          effectiveCustomerIds.length > 0
+            ? `partner:${partnerId.trim()} (${effectiveCustomerIds.length} users)`
             : normalizedCustomerId,
         rangeStart: requestStart,
         rangeEnd: requestEnd,
