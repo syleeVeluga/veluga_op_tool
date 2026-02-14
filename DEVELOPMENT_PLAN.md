@@ -1,0 +1,325 @@
+# 개발 계획서 — 고객 로그 데이터 추출 대시보드
+
+> 본 문서는 PRD v1.2.1 (PRD_v1_2_1_CloudRun.md) 기반의 단계별 구현 계획입니다.
+> Copilot 및 AI 보조 개발 시 컨텍스트 참조용으로 작성되었습니다.
+> 최종 갱신: 2026-02-14
+
+---
+
+## 전체 구조 요약
+
+```
+React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
+```
+
+- **Frontend**: React + TypeScript + Tailwind CSS + shadcn/ui + TanStack Query
+- **Backend**: Node.js + Express + TypeScript + MongoDB Driver
+- **인증**: 이메일 기반 JWT, RBAC + 메뉴 권한
+- **배포**: Frontend → GitHub Pages / Backend → Google Cloud Run
+
+---
+
+## Phase 1: 프로젝트 기반 보강 (M1 — 0.5주)
+
+> ⚡ 상태: 부분 완료 (서버 스캐폴딩 + 배포 인프라 완료)
+
+### 1-1. 공유 타입 정의
+- [ ] `shared/types/` 폴더 생성
+- [ ] `shared/types/filter.ts` — `FilterCondition`, `DateRange`, `FilterValue`
+- [ ] `shared/types/query.ts` — `QueryRequest`, `QueryResponse`, `CursorInfo`
+- [ ] `shared/types/schema.ts` — `DataType`, `SchemaColumn`, `SchemaFilter`, `DataTypeSchema`
+- [ ] `shared/types/user.ts` — `UserRole`, `User`, `LoginRequest`, `LoginResponse`
+- [ ] `shared/types/preset.ts` — `Preset`, `PresetCreateRequest`
+- [ ] `shared/types/export.ts` — `ExportOptions`, `ExportFormat`
+- [ ] `shared/types/index.ts` — barrel export
+
+### 1-2. 환경변수 체계화
+- [ ] `backend/.env.example` 작성
+  ```
+  MONGODB_URI=mongodb+srv://...
+  MONGODB_DB_NAME=logdb
+  JWT_SECRET=your-jwt-secret
+  JWT_EXPIRES_IN=8h
+  CORS_ORIGIN=https://your-org.github.io
+  MAX_EXPORT_ROWS=10000
+  CSV_TRUNCATE_LENGTH=5000
+  MAX_CONCURRENT_EXPORTS=2
+  QUERY_TIMEOUT_MS=30000
+  PORT=8080
+  ```
+- [ ] `dotenv` 패키지 추가, `backend/src/config/env.ts` 환경변수 로더 작성
+
+### 1-3. 프론트엔드 프로젝트 초기화
+- [ ] `frontend/` — Vite + React + TypeScript 프로젝트 생성
+- [ ] Tailwind CSS 설치 및 설정
+- [ ] shadcn/ui 초기화 (Button, Select, Input, Dialog, Table, DatePicker 등)
+- [ ] React Router v6 설치 및 라우트 구성
+- [ ] TanStack Query (React Query v5) 설치 및 QueryClient 설정
+- [ ] `frontend/.env.example` — `VITE_API_BASE_URL`
+- [ ] `frontend/Dockerfile` (선택) 또는 GitHub Pages 배포 설정
+
+### 1-4. 백엔드 의존성 추가
+- [ ] `mongodb` — MongoDB Native Driver
+- [ ] `jsonwebtoken` + `@types/jsonwebtoken` — JWT
+- [ ] `bcrypt` + `@types/bcrypt` — 비밀번호 해싱
+- [ ] `fast-csv` — CSV 생성/스트리밍
+- [ ] `zod` — 입력 검증
+- [ ] `dotenv` — 환경변수
+
+### 1-5. 백엔드 디렉토리 구조 확장
+- [ ] `backend/src/routes/` — auth.ts, data.ts, adminUsers.ts, presets.ts
+- [ ] `backend/src/services/` — queryBuilder.ts, csvGenerator.ts, jsonExporter.ts, schemaProvider.ts
+- [ ] `backend/src/middleware/` — authz.ts, auditLogger.ts, errorHandler.ts
+- [ ] `backend/src/models/` — User, Preset, AuditLog 타입/헬퍼
+- [ ] `backend/src/config/` — env.ts, database.ts, schema/
+
+---
+
+## Phase 2: 스키마 설정 + 쿼리 빌더 (M2 — 1주)
+
+> 전체 시스템의 핵심 기반 모듈
+
+### 2-1. 데이터 유형별 스키마 설정 파일
+- [ ] `backend/src/config/schema/conversations.ts`
+  - collection: `conversations`, customerField: `userId`, timestampField: `timestamp`
+  - 필터: 모델명(select), 토큰사용량(range)
+- [ ] `backend/src/config/schema/api_usage_logs.ts`
+  - 필터: endpoint(search), method(select), statusCode(select)
+- [ ] `backend/src/config/schema/event_logs.ts`
+  - 필터: eventType(select)
+- [ ] `backend/src/config/schema/error_logs.ts`
+  - 필터: errorCode(search), severity(select: info/warn/error/critical)
+- [ ] `backend/src/config/schema/billing_logs.ts`
+  - 필터: plan(select), status(select)
+- [ ] `backend/src/config/schema/user_activities.ts`
+  - 필터: action(select), sessionId(search)
+- [ ] `backend/src/config/schema/index.ts` — dataType → schema 레지스트리 맵
+
+### 2-2. 쿼리 빌더 엔진 (`backend/src/services/queryBuilder.ts`)
+- [ ] `buildAggregationPipeline(request: QueryRequest): Document[]`
+  - 필수 검증: customerId + dateRange 존재 확인
+  - $match 단계: customerField → customerId, timestampField → $gte/$lte
+  - 동적 필터 적용: select → $eq, search → $regex(case-insensitive), range → $gte/$lte
+  - $project 단계: 선택된 columns만 프로젝션
+  - $sort: timestamp DESC 기본
+  - $limit: MAX_EXPORT_ROWS (기본 10000)
+  - seek pagination: afterTs + afterId 기반 커서
+- [ ] `buildCountPipeline(request: QueryRequest): Document[]` — total 카운트용
+- [ ] 가드레일: 쿼리 타임아웃 30초, readPreference secondaryPreferred
+- [ ] 단위 테스트 작성
+
+### 2-3. 입력값 검증
+- [ ] `backend/src/middleware/validators.ts`
+  - Zod 스키마: QueryRequest, ExportRequest, CustomerSearchRequest
+  - NoSQL Injection 방지: `$` 접두사 키 차단, 타입 강제
+  - dataType enum 검증
+
+---
+
+## Phase 3: 백엔드 API 구현 (M3 — 1주)
+
+### 3-1. MongoDB 연결 (`backend/src/config/database.ts`)
+- [ ] MongoClient 싱글턴, 연결풀링
+- [ ] Read-Only 계정 접속 (NF-01)
+- [ ] readPreference: secondaryPreferred
+- [ ] graceful shutdown (SIGTERM 시 connection close)
+- [ ] 연결 상태 확인 함수
+
+### 3-2. 스키마 조회 API — `GET /api/schema/:dataType`
+- [ ] `backend/src/routes/data.ts` 라우트
+- [ ] `backend/src/services/schemaProvider.ts` — 레지스트리에서 columns/filters 반환
+- [ ] 잘못된 dataType → 400 에러
+
+### 3-3. 고객 검색 API — `GET /api/customers/search?q=`
+- [ ] 최소 2글자 입력 필요
+- [ ] 고객 컬렉션에서 ID/이름 regex 검색
+- [ ] 최대 20건 반환, 응답: `{ customers: [{ id, name, email }] }`
+
+### 3-4. 데이터 조회 API — `POST /api/data/query`
+- [ ] Zod 입력 검증 → queryBuilder로 파이프라인 생성 → MongoDB 실행
+- [ ] 응답: `{ rows, total?, pageSize, nextCursor?, hasMore }`
+- [ ] 미리보기 기본 100행
+
+### 3-5. CSV Export API — `POST /api/data/export-csv`
+- [ ] `backend/src/services/csvGenerator.ts`
+  - MongoDB Cursor → Transform Stream → fast-csv → HTTP Response
+  - 문자열 5000자 Truncate (설정 가능)
+  - Nested 데이터 플랫트닝 (`messages[0].content` → `messages_0_content`)
+  - 파일명 자동생성: `{dataType}_{customerId}_{date}.csv`
+- [ ] 동시 Export 세마포어 (MAX_CONCURRENT_EXPORTS)
+- [ ] Content-Type: text/csv, Content-Disposition: attachment
+
+### 3-6. JSON Export API — `POST /api/data/export-json`
+- [ ] `backend/src/services/jsonExporter.ts`
+  - MongoDB Cursor → JSON Array 스트리밍 → 선택적 gzip
+  - Truncate 없이 원문
+  - Content-Type: application/json 또는 application/gzip
+- [ ] 동시 Export 세마포어 공유
+
+### 3-7. 인증/인가
+- [ ] `backend/src/routes/auth.ts`
+  - `POST /api/auth/login` — 이메일+비밀번호 → JWT 발급
+  - JWT payload: `{ userId, email, role, allowedMenus, allowedDataTypes }`
+- [ ] `backend/src/middleware/authz.ts`
+  - `authenticate` — JWT 검증 미들웨어
+  - `authorize(roles)` — 역할 기반 접근 제어
+  - `checkMenuAccess(menu)` — 메뉴 권한 검사
+  - `checkDataTypeAccess(dataType)` — 데이터 유형 접근 검사
+- [ ] `GET /api/me` — 로그인 사용자 정보 반환
+
+### 3-8. 관리자 사용자 관리 — `/api/admin/users`
+- [ ] `backend/src/routes/adminUsers.ts`
+  - GET / — 사용자 목록 (Admin only)
+  - POST / — 사용자 생성 (email, name?, role, allowedMenus, allowedDataTypes)
+  - PUT /:id — 수정
+  - DELETE /:id — 비활성화
+- [ ] User 스키마: `{ email, name, passwordHash, role, allowedMenus, allowedDataTypes, status, createdAt, updatedAt }`
+
+### 3-9. 프리셋 API — `/api/presets`
+- [ ] `backend/src/routes/presets.ts`
+  - GET / — 내 프리셋 목록
+  - POST / — 저장 `{ name, dataType, filters, columns }`
+  - PUT /:id — 수정
+  - DELETE /:id — 삭제
+- [ ] 사용자별 격리 (JWT에서 userId 추출)
+
+### 3-10. 감사 로그
+- [ ] `backend/src/middleware/auditLogger.ts`
+  - 조회/다운로드 요청마다 자동 기록
+  - 저장: `{ userId, email, action, dataType, filters, resultCount, exportType, timestamp }`
+- [ ] AuditLog 컬렉션에 저장
+
+### 3-11. 에러 핸들링
+- [ ] `backend/src/middleware/errorHandler.ts`
+  - 전역 에러 핸들러, 구조화된 에러 응답
+  - `{ error: { code, message, details? } }`
+
+---
+
+## Phase 4: 프론트엔드 — 레이아웃 + 필터 패널 (M4 — 1.5주)
+
+### 4-1. 레이아웃
+- [ ] `frontend/src/components/Layout/AppLayout.tsx` — 헤더+사이드바+메인
+- [ ] `frontend/src/components/Layout/Header.tsx` — 로고, 사용자 이메일, 로그아웃
+- [ ] `frontend/src/components/Layout/Sidebar.tsx` — 권한 기반 동적 메뉴
+- [ ] 라우트 구성: `/dashboard`, `/json-export`, `/admin/users`, `/login`
+
+### 4-2. 인증 플로우
+- [ ] `frontend/src/pages/Login.tsx` — 이메일+비밀번호 로그인 폼
+- [ ] `frontend/src/hooks/useAuth.ts` — 로그인/로그아웃, JWT 관리
+- [ ] `frontend/src/components/ProtectedRoute.tsx` — 인증+권한 가드
+- [ ] JWT 저장: localStorage 또는 메모리 (보안 수준에 따라 결정)
+
+### 4-3. 필터 패널
+- [ ] `frontend/src/components/FilterPanel/FilterPanel.tsx` — 2단 구조 컨테이너
+- [ ] `frontend/src/components/FilterPanel/DataTypeSelect.tsx` — 데이터 유형 드롭다운
+- [ ] `frontend/src/components/FilterPanel/CustomerSearch.tsx` — 자동완성 Combobox (debounce 300ms)
+- [ ] `frontend/src/components/FilterPanel/DateRangePicker.tsx` — 날짜 범위 + 빠른 선택
+- [ ] `frontend/src/components/FilterPanel/DynamicFilters.tsx` — 데이터 유형별 동적 필터
+- [ ] `frontend/src/components/FilterPanel/FilterActions.tsx` — 조회/초기화 버튼
+
+### 4-4. API 연동 훅
+- [ ] `frontend/src/hooks/useSchema.ts` — schema 조회 (dataType 변경 시)
+- [ ] `frontend/src/hooks/useCustomerSearch.ts` — 고객 검색 자동완성
+- [ ] `frontend/src/hooks/useDataQuery.ts` — 조회 실행 + 페이지네이션
+- [ ] `frontend/src/lib/api.ts` — axios/fetch 래퍼, JWT 자동 첨부, 에러 처리
+
+---
+
+## Phase 5: 프론트엔드 — 결과 테이블 + 다운로드 (M5 — 1주)
+
+### 5-1. 결과 테이블
+- [ ] `frontend/src/components/DataTable/DataTable.tsx`
+  - shadcn/ui Table 기반, 컬럼 정렬, 페이지네이션 (25/50/100행)
+  - Nested 데이터 플랫트닝 표시
+- [ ] `frontend/src/components/DataTable/SkeletonLoader.tsx` — 로딩 스켈레톤
+- [ ] `frontend/src/components/DataTable/EmptyState.tsx` — 빈 상태 안내
+
+### 5-2. 컬럼 선택
+- [ ] `frontend/src/components/DataTable/ColumnSelector.tsx` — 체크박스 컬럼 선택
+
+### 5-3. CSV 다운로드
+- [ ] `frontend/src/components/Export/CsvExport.tsx`
+  - 다운로드 버튼 + Truncate 안내 배너
+  - Blob 다운로드 처리, 파일명 자동
+
+### 5-4. JSON 전문 다운로드
+- [ ] `frontend/src/pages/JsonExport.tsx` — 별도 페이지
+  - 동일 필터 UI 재사용
+  - JSON 다운로드 버튼 + gzip 옵션 토글
+
+### 5-5. 메인 대시보드 페이지
+- [ ] `frontend/src/pages/Dashboard.tsx` — FilterPanel + DataTable + ExportActions 통합
+
+---
+
+## Phase 6: 프리셋 + 히스토리 (M6 — 0.5주)
+
+### 6-1. 프리셋 매니저
+- [ ] `frontend/src/components/PresetManager/PresetManager.tsx`
+  - 프리셋 저장 다이얼로그
+  - 목록 표시 + 클릭 시 필터 자동 채움
+  - 수정/삭제
+- [ ] `frontend/src/hooks/usePresets.ts` — CRUD 연동
+
+### 6-2. 조회 히스토리
+- [ ] `frontend/src/components/QueryHistory/QueryHistory.tsx`
+  - 최근 20건 이력, 재실행 기능
+- [ ] `frontend/src/hooks/useQueryHistory.ts`
+
+---
+
+## Phase 7: 관리자 기능 (M7 — 0.5주)
+
+### 7-1. 관리자 페이지
+- [ ] `frontend/src/pages/AdminUsers.tsx`
+  - 사용자 목록 테이블
+  - 추가 폼: 이메일, 이름, 역할, 메뉴 권한(체크박스), 데이터 유형(체크박스)
+  - 수정/비활성화
+
+### 7-2. 메뉴 접근 제어 통합
+- [ ] Sidebar에서 `allowedMenus` 기반 메뉴 필터링
+- [ ] ProtectedRoute에서 메뉴 + 데이터 유형 접근 검사
+- [ ] 직접 URL 접근 차단 → 403 안내 페이지
+
+---
+
+## Phase 8: 통합 테스트 + QA + 배포 (M8 — 1주)
+
+### 8-1. 테스트
+- [ ] 백엔드 단위 테스트: queryBuilder, csvGenerator, jsonExporter
+- [ ] API 통합 테스트: 모든 엔드포인트
+- [ ] UC-01~UC-06 시나리오 수동 검증
+- [ ] 보안 테스트: NoSQL Injection, 권한 우회
+
+### 8-2. 성능 검증
+- [ ] 조회 응답 < 3초 (1000건 기준) — NF-08
+- [ ] CSV 생성 < 5초 (10000건 기준) — NF-09
+- [ ] 동시 사용자 10명 — NF-10
+
+### 8-3. 배포
+- [ ] Frontend GitHub Pages 배포 워크플로우 (`.github/workflows/deploy-frontend.yml`)
+- [ ] Cloud Run CORS 설정 확정 (GitHub Pages 도메인만 허용)
+- [ ] Secret Manager 연동 (선택)
+- [ ] Production 전체 플로우 검증
+
+---
+
+## 주요 결정사항
+
+| 항목 | 결정 | 근거 |
+|------|------|------|
+| DB 드라이버 | MongoDB Native Driver | Read-Only 조회 전용, Mongoose보다 가벼움 |
+| 인증 | 이메일 + 비밀번호 + JWT | PRD 요구사항, SSO는 추후 교체 가능 |
+| 개발 순서 | Backend-first | API가 준비된 상태에서 Frontend 개발 효율적 |
+| CSV 라이브러리 | fast-csv | 스트리밍 지원, 대용량 처리 |
+| 입력 검증 | Zod | TypeScript 타입 추론, 간결한 문법 |
+| 페이지네이션 | Seek (cursor) 방식 | offset 방식 대비 대용량 데이터 성능 우수 |
+
+---
+
+## 참조 문서
+
+- `PRD_v1_2_1_CloudRun.md` — 전체 요구사항 정의서
+- `PROJECT_STATUS.md` — 구현 진행 상황 추적
+- `ARCHITECTURE.md` — 아키텍처 결정 및 기술 참조
