@@ -139,8 +139,8 @@ npm run dev -- --host 127.0.0.1 --port 4173
 
 ```powershell
 cd ..
-npx playwright install
-npx playwright screenshot --wait-for-timeout=2000 http://127.0.0.1:4173 playwright-frontend-home.png
+npx.cmd playwright install
+npx.cmd playwright screenshot --wait-for-timeout=2000 http://127.0.0.1:4173 playwright-frontend-home.png
 ```
 
 성공 시 루트 경로에 `playwright-frontend-home.png`가 생성됩니다.
