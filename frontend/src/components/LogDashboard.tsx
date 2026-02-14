@@ -74,7 +74,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
   const [exportNotice, setExportNotice] = useState<string | null>(null)
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
-  const isPartnerResolvedMode = selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
+  const isPartnerResolvedMode = mode === 'partner' && selectedGuide.supportsPartnerLookup && partnerId.trim().length > 0 && partnerCustomerIds.length > 0
   const channelFilterKey = useMemo(() => {
     if (!schema) {
       return null
@@ -321,7 +321,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
       .filter((item) => item.length > 0)
 
     const effectiveCustomerIds =
-      normalizedCustomerId.length > 0 ? [] : normalizedPartnerCustomerIds
+      mode === 'partner' && normalizedCustomerId.length === 0 ? normalizedPartnerCustomerIds : []
 
     if (!normalizedCustomerId && effectiveCustomerIds.length === 0) {
       try {
@@ -389,7 +389,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
       .map((item) => item.trim())
       .filter((item) => item.length > 0)
     const effectiveCustomerIds =
-      normalizedCustomerId.length > 0 ? [] : normalizedPartnerCustomerIds
+      mode === 'partner' && normalizedCustomerId.length === 0 ? normalizedPartnerCustomerIds : []
     const requestStart = toIsoString(startAt)
     const requestEnd = toIsoString(endAt)
 
@@ -587,7 +587,7 @@ export function LogDashboard({ mode }: LogDashboardProps) {
 
             {/* Partner Mode: Partner lookup is mandatory/primary */}
             {/* User Mode: Partner lookup is optional */}
-            {(mode === 'partner' || (mode === 'user' && selectedGuide.supportsPartnerLookup)) && (
+            {mode === 'partner' && selectedGuide.supportsPartnerLookup && (
               <div className={`space-y-2 rounded-md border ${mode === 'partner' ? 'bg-blue-50 border-blue-200' : 'bg-slate-50'} p-3`}>
                 <div className="text-xs font-semibold text-slate-700">
                     {mode === 'partner' ? 'Partner ID 조회 (필수)' : 'Partner ID 기반 사용자 확장'}
