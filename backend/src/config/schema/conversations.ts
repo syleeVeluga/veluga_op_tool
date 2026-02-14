@@ -2,12 +2,20 @@ import type { DataTypeSchema } from "./types";
 
 export const conversationsSchema: DataTypeSchema = {
   dataType: "conversations",
-  collection: "conversations",
-  customerField: "customerId",
+  dbName: "prod",
+  collection: "chats",
+  customerField: "creator",
   timestampField: "createdAt",
-  filters: [],
+  filters: [
+    { key: "channel", label: "Channel", type: "search" },
+    { key: "creatorType", label: "Creator Type", type: "search" },
+  ],
   columns: [
     { key: "createdAt", label: "시간", type: "datetime" },
-    { key: "conversationId", label: "Conversation ID", type: "string" },
+    { key: "creator", label: "Creator", type: "string" },
+    { key: "creatorType", label: "Creator Type", type: "string" },
+    { key: "channel", label: "Channel", type: "string" },
+    { key: "session", label: "Session", type: "string" },
+    { key: "text", label: "Text", type: "string" },
   ],
 };

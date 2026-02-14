@@ -2,22 +2,22 @@ import type { DataTypeSchema } from "./types";
 
 export const apiUsageLogsSchema: DataTypeSchema = {
   dataType: "api_usage_logs",
-  collection: "api_usage_logs",
-  customerField: "userId",
-  timestampField: "timestamp",
+  dbName: "prod",
+  collection: "usagelogs",
+  customerField: "creator",
+  timestampField: "createdAt",
   filters: [
-    { key: "endpoint", label: "Endpoint", type: "search" },
-    {
-      key: "method",
-      label: "Method",
-      type: "select",
-      options: ["GET", "POST", "PUT", "DELETE"],
-    },
+    { key: "type", label: "Type", type: "search" },
+    { key: "channel", label: "Channel", type: "search" },
+    { key: "creatorType", label: "Creator Type", type: "search" },
   ],
   columns: [
-    { key: "timestamp", label: "시간", type: "datetime" },
-    { key: "endpoint", label: "Endpoint", type: "string" },
-    { key: "method", label: "Method", type: "string" },
-    { key: "statusCode", label: "Status Code", type: "number" },
+    { key: "createdAt", label: "시간", type: "datetime" },
+    { key: "creator", label: "Creator", type: "string" },
+    { key: "creatorType", label: "Creator Type", type: "string" },
+    { key: "channel", label: "Channel", type: "string" },
+    { key: "type", label: "Type", type: "string" },
+    { key: "amount", label: "Amount", type: "number" },
+    { key: "balance", label: "Balance", type: "number" },
   ],
 };

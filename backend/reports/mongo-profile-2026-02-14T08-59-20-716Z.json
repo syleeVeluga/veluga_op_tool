@@ -1,0 +1,986 @@
+{
+  "safety": {
+    "mode": "read-only",
+    "notes": [
+      "No insert/update/delete commands",
+      "No index creation/deletion",
+      "No schema modification",
+      "Read preference: secondaryPreferred"
+    ]
+  },
+  "sourceEnvFile": "C:\\dev\\user_log_dashboard\\.env.veluga.mongo",
+  "startedAt": "2026-02-14T08:59:20.716Z",
+  "options": {
+    "maxCollections": 500,
+    "sampleDocsPerCollection": 10,
+    "maxTimeMS": 1500,
+    "serverSelectionTimeoutMS": 12000
+  },
+  "dnsServers": [
+    "8.8.8.8",
+    "1.1.1.1"
+  ],
+  "targets": [
+    {
+      "label": "MONGO_CLUSTER",
+      "dbName": "prod",
+      "collections": [
+        {
+          "name": "businessplanhistories",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "datadocs",
+          "estimatedDocumentCount": 4861,
+          "sampleKeys": [
+            "channel_id",
+            "data_id",
+            "docs"
+          ]
+        },
+        {
+          "name": "userchannelfavorites",
+          "estimatedDocumentCount": 41,
+          "sampleKeys": [
+            "user",
+            "channel",
+            "isBusiness",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "weburls",
+          "estimatedDocumentCount": 11656,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "protocol",
+            "domain",
+            "subDomain",
+            "path",
+            "inputUrl",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "runningTime",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "lawsearches",
+          "estimatedDocumentCount": 5286,
+          "sampleKeys": [
+            "serialNumber",
+            "currentStatusCode",
+            "lawNameKR",
+            "lawShortName",
+            "lawID",
+            "promulgationDate",
+            "promulgationNumber",
+            "amendmentType",
+            "responsibleDepartmentCode",
+            "responsibleDepartment",
+            "lawCategory",
+            "effectiveDate",
+            "relationWithOtherLaws",
+            "lawDetailLink",
+            "createdAt",
+            "updatedAt"
+          ]
+        },
+        {
+          "name": "userplans",
+          "estimatedDocumentCount": 6125,
+          "sampleKeys": [
+            "user",
+            "usage",
+            "available",
+            "history",
+            "paymentDate",
+            "lastPaymentDate",
+            "deletedAt",
+            "reason",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "currentPlan",
+            "isBusiness",
+            "expiresAt",
+            "paymentDateBeforeUnsubscribe",
+            "nextPlan"
+          ]
+        },
+        {
+          "name": "userplanhistories",
+          "estimatedDocumentCount": 6964,
+          "sampleKeys": [
+            "userPlan",
+            "user",
+            "type",
+            "plan",
+            "usage",
+            "expired",
+            "expiredAt",
+            "createdAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "sessions",
+          "estimatedDocumentCount": 3415897,
+          "sampleKeys": [
+            "channel",
+            "isPublic",
+            "participants",
+            "guests",
+            "lastChat",
+            "deletedAt",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "withdrawalusers",
+          "estimatedDocumentCount": 36,
+          "sampleKeys": [
+            "userId",
+            "email",
+            "withdrawalReason",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "admins",
+          "estimatedDocumentCount": 16,
+          "sampleKeys": [
+            "name",
+            "email",
+            "password",
+            "role",
+            "deletedAt",
+            "lastLoggedInAt",
+            "isBusiness",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "company"
+          ]
+        },
+        {
+          "name": "settingtemplates",
+          "estimatedDocumentCount": 2,
+          "sampleKeys": [
+            "name",
+            "description",
+            "templateType",
+            "templates",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "oauthcredentials",
+          "estimatedDocumentCount": 15,
+          "sampleKeys": [
+            "appName",
+            "provider",
+            "userId",
+            "__v",
+            "accessToken",
+            "createdAt",
+            "expiresAt",
+            "isActive",
+            "lastRefreshedAt",
+            "metadata",
+            "profile",
+            "refreshToken",
+            "scope",
+            "updatedAt"
+          ]
+        },
+        {
+          "name": "members",
+          "estimatedDocumentCount": 7168,
+          "sampleKeys": [
+            "user",
+            "permission",
+            "model",
+            "modelType",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "hints",
+          "estimatedDocumentCount": 5065,
+          "sampleKeys": [
+            "namespace",
+            "document_id",
+            "hints",
+            "created_at",
+            "updated_at"
+          ]
+        },
+        {
+          "name": "oauthsessions",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "channelscenarios",
+          "estimatedDocumentCount": 1,
+          "sampleKeys": [
+            "channel",
+            "menus",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "baseprompts",
+          "estimatedDocumentCount": 45,
+          "sampleKeys": [
+            "createdAt",
+            "frequencyPenalty",
+            "gptModel",
+            "humanTemplate",
+            "isBusiness",
+            "maximumLength",
+            "numOfMessagesPast",
+            "pType",
+            "presencePenalty",
+            "systemTemplate",
+            "temperature",
+            "topK",
+            "topP",
+            "updatedAt",
+            "alpha",
+            "topN"
+          ]
+        },
+        {
+          "name": "schools",
+          "estimatedDocumentCount": 1,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "url",
+            "apiUrl",
+            "target",
+            "ruleId",
+            "ruleName",
+            "schoolName",
+            "effectiveDate",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "startDeleteAt",
+            "runningTime",
+            "embeddingIds",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "numOfChar"
+          ]
+        },
+        {
+          "name": "channeltestworkflows",
+          "estimatedDocumentCount": 22,
+          "sampleKeys": [
+            "name",
+            "channel",
+            "channelWorkflow",
+            "nodes",
+            "initialState",
+            "creator",
+            "state",
+            "isActive",
+            "deletedAt",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "startNodeId"
+          ]
+        },
+        {
+          "name": "laws",
+          "estimatedDocumentCount": 505,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "url",
+            "apiUrl",
+            "target",
+            "lawNameKR",
+            "effectiveDate",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "runningTime",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "numOfChar",
+            "promulgationNumber",
+            "embeddingIds"
+          ]
+        },
+        {
+          "name": "publicsearches",
+          "estimatedDocumentCount": 3422,
+          "sampleKeys": [
+            "serialNumber",
+            "ruleName",
+            "ruleType",
+            "promulgationDate",
+            "promulgationNumber",
+            "currentStatusCode",
+            "amendmentType",
+            "lawCategory",
+            "ruleId",
+            "detailLink",
+            "effectiveDate",
+            "createdAt",
+            "updatedAt",
+            "organizationName"
+          ]
+        },
+        {
+          "name": "passwords",
+          "estimatedDocumentCount": 829,
+          "sampleKeys": [
+            "hash",
+            "salt",
+            "__v"
+          ]
+        },
+        {
+          "name": "partnerauths",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "prompttemplates",
+          "estimatedDocumentCount": 8,
+          "sampleKeys": [
+            "creator",
+            "order",
+            "name",
+            "condition",
+            "template",
+            "maximumLength",
+            "temperature",
+            "topP",
+            "topK",
+            "success",
+            "failure",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "pisearches",
+          "estimatedDocumentCount": 3725,
+          "sampleKeys": [
+            "serialNumber",
+            "ruleName",
+            "ruleType",
+            "promulgationDate",
+            "promulgationNumber",
+            "currentStatusCode",
+            "amendmentType",
+            "lawCategory",
+            "ruleId",
+            "detailLink",
+            "effectiveDate",
+            "createdAt",
+            "updatedAt",
+            "corporationName"
+          ]
+        },
+        {
+          "name": "precsearches",
+          "estimatedDocumentCount": 86171,
+          "sampleKeys": [
+            "precSerialNumber",
+            "caseName",
+            "caseNumber",
+            "decisionDate",
+            "courtName",
+            "caseType",
+            "decisionType",
+            "verdict",
+            "detailLink",
+            "createdAt",
+            "updatedAt"
+          ]
+        },
+        {
+          "name": "plans",
+          "estimatedDocumentCount": 10,
+          "sampleKeys": [
+            "name",
+            "description",
+            "state",
+            "available",
+            "price",
+            "discount",
+            "deletedAt",
+            "createdAt",
+            "updatedAt",
+            "isBusiness"
+          ]
+        },
+        {
+          "name": "channelworkflows",
+          "estimatedDocumentCount": 1139,
+          "sampleKeys": [
+            "name",
+            "description",
+            "channel",
+            "nodes",
+            "initialState",
+            "creator",
+            "state",
+            "isActive",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "schoolsearches",
+          "estimatedDocumentCount": 5347,
+          "sampleKeys": [
+            "serialNumber",
+            "ruleName",
+            "ruleType",
+            "promulgationDate",
+            "promulgationNumber",
+            "currentStatusCode",
+            "amendmentType",
+            "lawCategory",
+            "ruleId",
+            "detailLink",
+            "effectiveDate",
+            "createdAt",
+            "updatedAt",
+            "schoolName"
+          ]
+        },
+        {
+          "name": "guests",
+          "estimatedDocumentCount": 2829326,
+          "sampleKeys": [
+            "channel",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "isBusiness"
+          ]
+        },
+        {
+          "name": "files",
+          "estimatedDocumentCount": 44162,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "originalName",
+            "type",
+            "size",
+            "files",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "runningTime",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "path"
+          ]
+        },
+        {
+          "name": "botchats",
+          "estimatedDocumentCount": 3224,
+          "sampleKeys": [
+            "channel",
+            "creatorType",
+            "timezone",
+            "botType",
+            "botUser",
+            "botId",
+            "botName",
+            "text",
+            "context",
+            "isBusiness",
+            "usedCustomPrompt",
+            "chatType",
+            "aiModel",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "publics",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "channels",
+          "estimatedDocumentCount": 6894,
+          "sampleKeys": [
+            "creator",
+            "name",
+            "description",
+            "welcomeMessage",
+            "isPublic",
+            "state",
+            "languages",
+            "temperature",
+            "answerTypeIfCant",
+            "answerType",
+            "shouldReturnFile",
+            "folder",
+            "sessions",
+            "members",
+            "startTrainingAt",
+            "endTrainingAt",
+            "deletedAt",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "images",
+            "isBusiness",
+            "enableCustomPrompt",
+            "enableQuestionHint",
+            "commonGpt",
+            "enableChannelPrompt",
+            "enableFollowQuestion",
+            "searchModel",
+            "usageMember",
+            "enableCustomFollowQuestion",
+            "connectedChannels",
+            "customQuestions",
+            "enableForceUpdate",
+            "functionCalls",
+            "inquiry",
+            "layout",
+            "showDocFilterButton",
+            "visionVersion",
+            "widget",
+            "customPrompt"
+          ]
+        },
+        {
+          "name": "documents",
+          "estimatedDocumentCount": 275986,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "name",
+            "modelType",
+            "metadata",
+            "creator",
+            "startTrainingAt",
+            "embeddingIds",
+            "chunkSize",
+            "showContext",
+            "isDownloadable",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "numOfChar"
+          ]
+        },
+        {
+          "name": "apiauths",
+          "estimatedDocumentCount": 40,
+          "sampleKeys": [
+            "isBusiness",
+            "user",
+            "__v",
+            "apiKey",
+            "createdAt",
+            "lastUsedAt",
+            "updatedAt"
+          ]
+        },
+        {
+          "name": "precs",
+          "estimatedDocumentCount": 24,
+          "sampleKeys": [
+            "channel",
+            "state",
+            "url",
+            "apiUrl",
+            "target",
+            "precSerialNumber",
+            "caseNumber",
+            "caseName",
+            "decisionDate",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "runningTime",
+            "embeddingIds",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "numOfChar"
+          ]
+        },
+        {
+          "name": "remotemcps",
+          "estimatedDocumentCount": 18,
+          "sampleKeys": [
+            "type",
+            "url",
+            "serverName",
+            "version",
+            "args",
+            "env",
+            "isActive",
+            "tools",
+            "imgSrc",
+            "description",
+            "requiresAuth",
+            "createdAt",
+            "updatedAt",
+            "displayOrder"
+          ]
+        },
+        {
+          "name": "imwebs",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "chats",
+          "estimatedDocumentCount": 452548,
+          "sampleKeys": [
+            "creator",
+            "creatorType",
+            "text",
+            "channel",
+            "session",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "isBusiness"
+          ]
+        },
+        {
+          "name": "systems",
+          "estimatedDocumentCount": 3,
+          "sampleKeys": [
+            "name",
+            "value",
+            "description"
+          ]
+        },
+        {
+          "name": "invitations",
+          "estimatedDocumentCount": 84,
+          "sampleKeys": [
+            "email",
+            "channel",
+            "permission",
+            "expiredAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "emailverifications",
+          "estimatedDocumentCount": 1,
+          "sampleKeys": [
+            "email",
+            "code",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "ratelimitrules",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "usagelogs",
+          "estimatedDocumentCount": 434031,
+          "sampleKeys": [
+            "creator",
+            "creatorType",
+            "userPlan",
+            "channel",
+            "type",
+            "amount",
+            "balance",
+            "transactions",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "links",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "users",
+          "estimatedDocumentCount": 5853,
+          "sampleKeys": [
+            "name",
+            "email",
+            "members",
+            "social",
+            "deletedAt",
+            "lastLoggedInAt",
+            "color",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "isBusiness",
+            "password",
+            "thumbnail"
+          ]
+        },
+        {
+          "name": "partners",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "notions",
+          "estimatedDocumentCount": 117,
+          "sampleKeys": [
+            "channel",
+            "workspace",
+            "state",
+            "creator",
+            "startTrainingAt",
+            "endTrainingAt",
+            "runningTime",
+            "pages",
+            "databases",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "numOfChar"
+          ]
+        },
+        {
+          "name": "channeltemplates",
+          "estimatedDocumentCount": 11,
+          "sampleKeys": [
+            "name",
+            "displayName",
+            "description",
+            "isDefault",
+            "isActive",
+            "isFree",
+            "usageChatCount",
+            "order",
+            "imageUrl"
+          ]
+        },
+        {
+          "name": "workflows",
+          "estimatedDocumentCount": 58,
+          "sampleKeys": [
+            "name",
+            "description",
+            "nodes",
+            "initialState",
+            "owner",
+            "state",
+            "isActive",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "events",
+          "estimatedDocumentCount": 51,
+          "sampleKeys": [
+            "eventCode",
+            "name",
+            "email",
+            "phone",
+            "company",
+            "data",
+            "marketingAgree",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "mcps",
+          "estimatedDocumentCount": 87,
+          "sampleKeys": [
+            "channel",
+            "type",
+            "config",
+            "url",
+            "command",
+            "args",
+            "tools",
+            "value",
+            "isSuccess",
+            "createdAt",
+            "updatedAt",
+            "__v",
+            "serverName",
+            "env"
+          ]
+        },
+        {
+          "name": "companies",
+          "estimatedDocumentCount": 1,
+          "sampleKeys": [
+            "name",
+            "users",
+            "tags"
+          ]
+        },
+        {
+          "name": "aimodels",
+          "estimatedDocumentCount": 154,
+          "sampleKeys": [
+            "modelName",
+            "displayName",
+            "currency",
+            "inputCostPer1MToken",
+            "outputCostPer1MToken",
+            "isActive",
+            "origin",
+            "baseModel",
+            "isBusiness",
+            "supportTemplate",
+            "details",
+            "isDefault",
+            "functionCalls",
+            "enableStream",
+            "isFree",
+            "enableWebSearch",
+            "enableFileUpload",
+            "description",
+            "enableAgent"
+          ]
+        },
+        {
+          "name": "pis",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        },
+        {
+          "name": "businessplans",
+          "estimatedDocumentCount": 1,
+          "sampleKeys": [
+            "user",
+            "usage",
+            "available",
+            "history",
+            "startDate",
+            "endDate",
+            "deletedAt",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        },
+        {
+          "name": "errorlogs",
+          "estimatedDocumentCount": 24223,
+          "sampleKeys": [
+            "method",
+            "originalUrl",
+            "headers",
+            "body",
+            "ip",
+            "errorCode",
+            "message",
+            "stack",
+            "createdAt",
+            "updatedAt",
+            "__v"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "label": "MONGO_LOGDB",
+      "dbName": "logdb",
+      "collections": [
+        {
+          "name": "logentrydbs",
+          "estimatedDocumentCount": 6818403,
+          "sampleKeys": [
+            "serverType",
+            "serviceType",
+            "action",
+            "category",
+            "isBusiness",
+            "ip",
+            "details",
+            "timestamp",
+            "__v",
+            "subcategory",
+            "channel_id",
+            "user_id"
+          ]
+        },
+        {
+          "name": "logentries",
+          "estimatedDocumentCount": 0,
+          "sampleKeys": []
+        }
+      ],
+      "error": null
+    },
+    {
+      "label": "MONGODB_URI",
+      "dbName": "admin",
+      "collections": [
+        {
+          "name": "system.keys",
+          "estimatedDocumentCount": null,
+          "sampleKeys": []
+        },
+        {
+          "name": "system.roles",
+          "estimatedDocumentCount": null,
+          "sampleKeys": []
+        },
+        {
+          "name": "system.version",
+          "estimatedDocumentCount": null,
+          "sampleKeys": []
+        },
+        {
+          "name": "system.users",
+          "estimatedDocumentCount": null,
+          "sampleKeys": []
+        }
+      ],
+      "error": null
+    }
+  ]
+}

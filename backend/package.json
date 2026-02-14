@@ -9,7 +9,12 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "profile:mongo:readonly": "node scripts/profile-mongo-readonly.cjs",
-    "test:smoke:schema": "tsx scripts/smoke-schema-endpoint.ts"
+    "test:smoke:schema": "tsx scripts/smoke-schema-endpoint.ts",
+    "test:smoke:query-builder": "tsx scripts/smoke-query-builder.ts",
+    "test:smoke:data-query": "tsx scripts/smoke-data-query-endpoint.ts",
+    "test:smoke:customer-search": "tsx scripts/smoke-customer-search-endpoint.ts",
+    "test:smoke:conversation-batch": "tsx scripts/smoke-conversation-batch-endpoint.ts",
+    "test:smoke:period-summary": "tsx scripts/smoke-period-summary-endpoint.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

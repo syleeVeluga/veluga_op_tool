@@ -30,6 +30,7 @@ export interface SchemaColumn {
 
 export interface DataTypeSchema {
   dataType: DataType;
+  dbName: string;
   collection: string;
   customerField: string;
   timestampField: string;

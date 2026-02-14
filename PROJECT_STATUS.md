@@ -1,7 +1,7 @@
 # 프로젝트 진행 상황 — 고객 로그 데이터 추출 대시보드
 
 > 최종 갱신: 2026-02-14
-> 전체 진행률: ~25%
+> 전체 진행률: ~64%
 
 ---
 
@@ -10,8 +10,8 @@
 | Phase | 설명 | 상태 | 진행률 |
 |-------|------|------|--------|
 | Phase 1 | 프로젝트 기반 보강 | 🟡 부분 완료 | 55% |
-| Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 40% |
-| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 28% |
+| Phase 2 | 스키마 설정 + 쿼리 빌더 | 🟡 진행중 | 65% |
+| Phase 3 | 백엔드 API 구현 | 🟡 진행중 | 78% |
 | Phase 4 | 프론트엔드 레이아웃 + 필터 | ⬜ 미시작 | 0% |
 | Phase 5 | 프론트엔드 결과/다운로드 | ⬜ 미시작 | 0% |
 | Phase 6 | 프리셋 + 히스토리 | ⬜ 미시작 | 0% |
@@ -86,15 +86,55 @@
   - [x] 제한 실행 성공 (`maxCollections=10`, `sampleDocs=2`)
   - [x] full-scan 실행 성공 (`maxCollections=500`, `sampleDocs=1`)
   - [x] 결과 리포트 생성: `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json`
-  - [ ] dataType/필터/식별자 키 최종 확정
-- [x] 6개 데이터 유형 스키마 설정 파일(스켈레톤)
-- [ ] queryBuilder.ts — 필터 → MongoDB Aggregation Pipeline 변환
-- [ ] 입력값 검증 (Zod 스키마)
+  - [x] dataType/필터/식별자 키 최종 확정
+  - [x] 보강 실사(`sampleDocs=10`) 실행 및 키 보강 확인: `backend/reports/mongo-profile-2026-02-14T08-59-20-716Z.json`
+- [x] 6개 데이터 유형 스키마 설정 파일(실데이터 기반 1차 확정)
+- [x] queryBuilder.ts — 필터 → MongoDB Aggregation Pipeline 변환
+  - [x] `buildAggregationPipeline(request)` 구현
+  - [x] `buildCountPipeline(request)` 구현
+  - [x] seek pagination 커서(`afterTs`, `afterId`) 조건 반영
+  - [x] 필수값 가드(`customerId`, `dateRange`) + 필터 키 검증
+  - [x] 스모크 테스트 추가: `backend/scripts/smoke-query-builder.ts`
+- [x] 입력값 검증 (Zod 스키마)
+  - [x] `backend/src/middleware/validators.ts`
+  - [x] `$` 접두사 키 차단 (재귀 검사)
 
 ### Phase 3 (다음 작업)
 - [x] `GET /api/schema/:dataType` 라우트 + schemaProvider 뼈대 구현
 - [x] `routes/`, `services/` 디렉토리 생성 및 라우터 마운트 구조 전환
 - [x] `GET /api/schema/:dataType` 최소 스모크 테스트 2케이스
+- [x] `POST /api/data/query` 라우트 구현
+  - [x] validator 미들웨어 연동
+  - [x] queryBuilder + Mongo aggregate 실행 연동
+  - [x] 응답 포맷 `{ rows, pageSize, hasMore, nextCursor? }`
+  - [x] 스모크 테스트 추가: `backend/scripts/smoke-data-query-endpoint.ts` (validation 경로)
+- [x] `GET /api/customers/search?q=` 구현
+  - [x] 최소 2글자 검증
+  - [x] `prod.users` 기준 ID/ObjectId, name, email 검색
+  - [x] 최대 20건 반환 (`{ customers: [{ id, name, email }] }`)
+  - [x] 스모크 테스트 추가: `backend/scripts/smoke-customer-search-endpoint.ts`
+
+### 기간 요청 대응 메모 (월말/분기/반기)
+- [x] `POST /api/data/query`에 `total`(count) 옵션 노출 (`includeTotal`)
+- [x] 대용량 채널 요청 대응 배치 조회 API 추가
+  - [x] `POST /api/data/query-batch/conversations`
+  - [x] 채널 청크 처리(`channelChunkSize`, 기본 50, 최대 100)
+  - [x] 기간 월 단위 윈도우 분할 처리(6개월 요청 대비)
+  - [x] 최대 500 채널 제한 + rowLimit 가드레일
+  - [x] 처리 메타 반환(`processedChunks`, `elapsedMs`)
+- [ ] dataType별 집계 응답(예: 대화 건수, 사용량 합계) API 설계
+- [x] 기간 집계 API 구현 (`credits/tokens` 포함)
+  - [x] `POST /api/data/summary/period`
+  - [x] `groupBy`: `month`, `quarter`, `halfyear`
+  - [x] `api_usage_logs`: `creditsUsed`, `inputTokens`, `outputTokens`, `totalTokens`, `avgBalance`, `requestCount`
+  - [x] `conversations`: `conversationCount`, `activeChannels`, `activeCreators`
+  - [x] 성능 가드: 최대 190일 기간 제한, `customerId` 또는 `channelIds` 필수
+- [x] 기간 설정 우선 정책 확정 (`dateRange.start/end` 직접 입력)
+- [ ] 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 이관
+
+### 기간 설정 정책 (현재)
+- [x] 모든 조회/집계 API는 `dateRange.start/end` 기반 직접 기간 설정 사용
+- [x] 프리셋 자동 생성 로직은 현재 범위에서 제외 (백로그)
 
 ### 실측 요약 (full-scan)
 - `prod` DB: 58 collections
@@ -107,6 +147,14 @@
   - `logdb.logentrydbs` (~681만)
 
 > 상세 내용은 DEVELOPMENT_PLAN.md 참조
+
+### dataType 매핑 확정 (1차)
+- `conversations` → `prod.chats` (`customerField: creator`, `timestampField: createdAt`)
+- `api_usage_logs` → `prod.usagelogs` (`customerField: creator`, `timestampField: createdAt`)
+- `event_logs` → `logdb.logentrydbs` (`customerField: user_id`, `timestampField: timestamp`)
+- `error_logs` → `prod.errorlogs` (`customerField: ip`, `timestampField: createdAt`)
+- `billing_logs` → `prod.userplanhistories` (`customerField: user`, `timestampField: createdAt`)
+- `user_activities` → `prod.sessions` (`customerField: channel`, `timestampField: createdAt`)
 
 ---
 
@@ -229,3 +277,11 @@ user_log_dashboard/
 |------|-----------|
 | 2026-02-14 | 최초 작성. Phase 1 부분 완료 상태에서 시작. |
 | 2026-02-14 | `/api/schema/:dataType` 응답 포맷 `{columns,filters}` 고정, schemaProvider/registry/6개 schema 스켈레톤 추가, 최소 스모크 테스트(정상+오류) 추가. |
+| 2026-02-14 | Mongo read-only 보강 실사(sampleDocs=10) 기반으로 6개 dataType의 컬렉션/식별자/타임스탬프/필터 키 1차 확정 및 스키마 파일 반영. |
+| 2026-02-14 | `backend/src/services/queryBuilder.ts` 구현(`buildAggregationPipeline`, `buildCountPipeline`) 및 `backend/scripts/smoke-query-builder.ts` 추가. |
+| 2026-02-14 | `backend/src/middleware/validators.ts` 추가, `POST /api/data/query` 연동, `backend/scripts/smoke-data-query-endpoint.ts` 스모크 테스트 추가. |
+| 2026-02-14 | `GET /api/customers/search?q=` 구현(`prod.users` 기준 2글자 이상, 최대 20건) 및 `backend/scripts/smoke-customer-search-endpoint.ts` 추가. |
+| 2026-02-14 | `POST /api/data/query`에 `includeTotal` 옵션 추가, `total` 응답 지원(기간별 요청 대비). |
+| 2026-02-14 | `POST /api/data/query-batch/conversations` 추가(최대 500채널, 월단위 윈도우+채널 청크 배치 처리) 및 `backend/scripts/smoke-conversation-batch-endpoint.ts` 추가. |
+| 2026-02-14 | `POST /api/data/summary/period` 추가(월/분기/반기 집계, 크레딧/토큰/대화지표 포함) 및 `backend/scripts/smoke-period-summary-endpoint.ts` 추가. |
+| 2026-02-14 | 기간 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선으로 보류하고, `dateRange` 직접 설정을 우선 정책으로 확정. |

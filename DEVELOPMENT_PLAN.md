@@ -96,15 +96,15 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - `prod.weburls` 확인: 약 1.1만건, 키 `domain/path/inputUrl/state/startTrainingAt/endTrainingAt`
 - full-scan 완료: `backend/reports/mongo-profile-2026-02-14T06-19-07-163Z.json` (`prod` 58개, `logdb` 2개)
 
-#### 2-0 실측 기반 dataType 매핑 초안
-- `conversations` → `prod.chats` (보조: `prod.sessions`)
-- `api_usage_logs` → `prod.usagelogs`
-- `event_logs` → `logdb.logentrydbs` (필터: `serverType`, `serviceType`, `action`, `category`)
-- `error_logs` → `prod.errorlogs`
-- `billing_logs` → `prod.userplans`, `prod.userplanhistories`
-- `user_activities` → `prod.sessions`, `prod.guests`
+#### 2-0 실측 기반 dataType 매핑 확정 (1차)
+- `conversations` → `prod.chats` (`customerField: creator`, `timestampField: createdAt`)
+- `api_usage_logs` → `prod.usagelogs` (`customerField: creator`, `timestampField: createdAt`)
+- `event_logs` → `logdb.logentrydbs` (`customerField: user_id`, `timestampField: timestamp`, 필터: `serverType/serviceType/action/category/subcategory/channel_id`)
+- `error_logs` → `prod.errorlogs` (`customerField: ip`, `timestampField: createdAt`)
+- `billing_logs` → `prod.userplanhistories` (`customerField: user`, `timestampField: createdAt`)
+- `user_activities` → `prod.sessions` (`customerField: channel`, `timestampField: createdAt`)
 
-> 주의: 매핑 확정 전 `customerId`에 해당하는 실제 식별자 키(`user`, `creator`, `channel`, `channel_id` 등)를 컬렉션별로 추가 검증해야 함.
+> 참고: 2026-02-14 보강 실사(`sampleDocsPerCollection=10`) 리포트 `backend/reports/mongo-profile-2026-02-14T08-59-20-716Z.json`에서 `logentrydbs.channel_id`, `logentrydbs.user_id` 키를 추가 확인함.
 
 ### 2-1. 데이터 유형별 스키마 설정 파일
 - [x] `backend/src/config/schema/conversations.ts` (스켈레톤)
@@ -123,7 +123,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] `backend/src/config/schema/index.ts` — dataType → schema 레지스트리 맵
 
 ### 2-2. 쿼리 빌더 엔진 (`backend/src/services/queryBuilder.ts`)
-- [ ] `buildAggregationPipeline(request: QueryRequest): Document[]`
+- [x] `buildAggregationPipeline(request: QueryRequest): Document[]`
   - 필수 검증: customerId + dateRange 존재 확인
   - $match 단계: customerField → customerId, timestampField → $gte/$lte
   - 동적 필터 적용: select → $eq, search → $regex(case-insensitive), range → $gte/$lte
@@ -131,12 +131,12 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - $sort: timestamp DESC 기본
   - $limit: MAX_EXPORT_ROWS (기본 10000)
   - seek pagination: afterTs + afterId 기반 커서
-- [ ] `buildCountPipeline(request: QueryRequest): Document[]` — total 카운트용
+- [x] `buildCountPipeline(request: QueryRequest): Document[]` — total 카운트용
 - [ ] 가드레일: 쿼리 타임아웃 30초, readPreference secondaryPreferred
-- [ ] 단위 테스트 작성
+- [ ] 단위 테스트 작성 (현재 스모크 테스트: `backend/scripts/smoke-query-builder.ts`)
 
 ### 2-3. 입력값 검증
-- [ ] `backend/src/middleware/validators.ts`
+- [x] `backend/src/middleware/validators.ts`
   - Zod 스키마: QueryRequest, ExportRequest, CustomerSearchRequest
   - NoSQL Injection 방지: `$` 접두사 키 차단, 타입 강제
   - dataType enum 검증
@@ -159,14 +159,38 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] 최소 스모크 테스트 추가 (`backend/scripts/smoke-schema-endpoint.ts`)
 
 ### 3-3. 고객 검색 API — `GET /api/customers/search?q=`
-- [ ] 최소 2글자 입력 필요
-- [ ] 고객 컬렉션에서 ID/이름 regex 검색
-- [ ] 최대 20건 반환, 응답: `{ customers: [{ id, name, email }] }`
+- [x] 최소 2글자 입력 필요
+- [x] 고객 컬렉션에서 ID/이름 regex 검색
+- [x] 최대 20건 반환, 응답: `{ customers: [{ id, name, email }] }`
+
+#### 3-3 구현 메모 (2026-02-14)
+- `prod.users` 컬렉션 대상
+- 검색 필드: `_id(ObjectId exact match)`, `name(regex)`, `email(regex)`
+- readPreference: `secondaryPreferred`, maxTimeMS: `QUERY_TIMEOUT_MS`
+- 스모크 테스트: `backend/scripts/smoke-customer-search-endpoint.ts`
 
 ### 3-4. 데이터 조회 API — `POST /api/data/query`
-- [ ] Zod 입력 검증 → queryBuilder로 파이프라인 생성 → MongoDB 실행
-- [ ] 응답: `{ rows, total?, pageSize, nextCursor?, hasMore }`
+- [x] Zod 입력 검증 → queryBuilder로 파이프라인 생성 → MongoDB 실행
+- [x] 응답: `{ rows, total?, pageSize, nextCursor?, hasMore }`
 - [ ] 미리보기 기본 100행
+
+#### 기간별 요청 대응 (월말/분기/반기) 후속
+- [x] `POST /api/data/query`에 `includeTotal` 플래그 추가 및 `total` 반환
+- [x] dataType별 기간 집계 응답(대화 건수, 사용량 합계 등) 구현
+  - [x] `POST /api/data/summary/period`
+  - [x] `groupBy`: month/quarter/halfyear
+  - [x] usage 지표: `creditsUsed`, `inputTokens`, `outputTokens`, `totalTokens`, `avgBalance`, `requestCount`
+  - [x] conversation 지표: `conversationCount`, `activeChannels`, `activeCreators`
+- [x] 기간 집계 가드레일: 기간 최대 190일, `customerId` 또는 `channelIds` 필수
+
+#### 기간 설정 정책 (2026-02-14 확정)
+- [x] 현재 단계는 `dateRange.start/end` 직접 설정만 사용
+- [ ] 프리셋 파라미터 생성(월/분기/반기/년)은 향후 개선 과제로 분리
+- [x] 대용량 대화로그 배치 조회 API 구현
+  - [x] `POST /api/data/query-batch/conversations`
+  - [x] 최대 500 채널 제한
+  - [x] 월 단위 기간 윈도우 분할 + 채널 청크 분할(기본 50)
+  - [x] 응답 메타(`processedChunks`, `elapsedMs`, `hasMore`, `total?`)
 
 ### 3-5. CSV Export API — `POST /api/data/export-csv`
 - [ ] `backend/src/services/csvGenerator.ts`
