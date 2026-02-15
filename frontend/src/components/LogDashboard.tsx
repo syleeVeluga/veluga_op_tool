@@ -30,7 +30,26 @@ import {
 } from '../lib/storage'
 import type { FilterInputState, QueryHistoryItem } from '../types/ui'
 
-export function LogDashboard() {
+type DashboardMode = 'default' | 'service'
+
+interface LogDashboardProps {
+  mode?: DashboardMode
+}
+
+const SERVICE_REPORT_COLUMNS = [
+  'occurredAt',
+  'channel',
+  'sessionId',
+  'customerId',
+  'questionText',
+  'finalAnswerText',
+  'finalAnswerModel',
+  'creditUsed',
+  'sessionCreditTotal',
+  'matchSource',
+] as const
+
+export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
   const [dataType, setDataType] = useState<DataType>(initialQuerySettings.dataType)
@@ -62,6 +81,9 @@ export function LogDashboard() {
   const [queryError, setQueryError] = useState<string | null>(null)
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [exportNotice, setExportNotice] = useState<string | null>(null)
+  const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
+
+  const isServiceMode = mode === 'service'
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
   const channelFilterKey = useMemo(() => {
@@ -90,15 +112,27 @@ export function LogDashboard() {
   }, [rows, schema])
 
   const resultColumns = useMemo(() => {
+    if (isServiceMode) {
+      const set = new Set(availableColumns)
+      const ordered = SERVICE_REPORT_COLUMNS.filter((column) => set.has(column))
+      const extras = availableColumns.filter((column) => !SERVICE_REPORT_COLUMNS.includes(column as (typeof SERVICE_REPORT_COLUMNS)[number]))
+      return [...ordered, ...extras]
+    }
+
     if (selectedColumns.length === 0) {
       return availableColumns
     }
 
     const set = new Set(availableColumns)
     return selectedColumns.filter((column) => set.has(column))
-  }, [availableColumns, selectedColumns])
+  }, [availableColumns, isServiceMode, selectedColumns])
 
   useEffect(() => {
+    if (isServiceMode && dataType !== 'conversations') {
+      setDataType('conversations')
+      return
+    }
+
     void (async () => {
       setSchemaLoading(true)
       setSchemaError(null)
@@ -135,7 +169,7 @@ export function LogDashboard() {
         setSchemaLoading(false)
       }
     })()
-  }, [dataType])
+  }, [dataType, isServiceMode])
 
   // Debounced customer search
   useEffect(() => {
@@ -379,11 +413,20 @@ export function LogDashboard() {
         columns: selectedColumns,
         pageSize,
         includeTotal,
+        ...(isServiceMode
+          ? {
+              includeSessionMessages: true,
+              reportMode: 'customer' as const,
+              sortOrder: 'asc' as const,
+              matchWindowSec: 60,
+            }
+          : {}),
       })
 
       setRows(result.rows)
       setTotal(result.total)
       setHasMore(result.hasMore)
+      setReportSummary(isServiceMode ? (result.summary as Record<string, unknown> | undefined) ?? null : null)
       const historyItem: QueryHistoryItem = {
         id: `${Date.now()}-success`,
         executedAt: new Date().toISOString(),
@@ -403,6 +446,7 @@ export function LogDashboard() {
       setRows([])
       setTotal(undefined)
       setHasMore(false)
+      setReportSummary(null)
       setQueryError(errorMessage)
       const historyItem: QueryHistoryItem = {
         id: `${Date.now()}-failed`,
@@ -488,6 +532,7 @@ export function LogDashboard() {
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={dataType}
                 onChange={(e) => setDataType(e.target.value as DataType)}
+                disabled={isServiceMode}
               >
                 {DATA_TYPES.map((item) => (
                   <option key={item} value={item}>
@@ -499,7 +544,7 @@ export function LogDashboard() {
 
             <div className="rounded-md border bg-slate-50 p-3">
               <div className="text-xs font-semibold text-slate-700">Data Type 안내</div>
-              <p className="mt-1 text-xs text-slate-600">{selectedGuide.description}</p>
+              <p className="mt-1 text-xs text-slate-600">{isServiceMode ? selectedGuide.serviceDescription ?? selectedGuide.description : selectedGuide.description}</p>
               <p className="mt-1 text-xs text-slate-600">조회 식별자 키: {selectedGuide.customerKey}</p>
             </div>
 
@@ -519,7 +564,7 @@ export function LogDashboard() {
                     placeholder={selectedGuide.customerExample}
                     required
                 />
-                <div className="mt-1 text-xs text-slate-500">{selectedGuide.customerInputHint}</div>
+                <div className="mt-1 text-xs text-slate-500">{isServiceMode ? selectedGuide.serviceCustomerInputHint ?? selectedGuide.customerInputHint : selectedGuide.customerInputHint}</div>
             </label>
 
             {supportsChannelSelection && (
@@ -767,6 +812,12 @@ export function LogDashboard() {
 
           {exportNotice && <p className="mb-3 text-xs text-slate-600">{exportNotice}</p>}
 
+          {isServiceMode && reportSummary && (
+            <div className="mb-3 rounded-md border bg-slate-50 p-3 text-xs text-slate-700">
+              요약 · unmatched: {String(reportSummary.unmatchedCount ?? 0)} / fallback: {String(reportSummary.fallbackCount ?? 0)} / totalCreditUsed: {String(reportSummary.totalCreditUsed ?? 0)}
+            </div>
+          )}
+
           <div className="mb-3 rounded-md border bg-slate-50 p-3">
             <div className="mb-2 text-xs font-semibold text-slate-700">실행 이력 (최근 10건)</div>
             {queryHistory.length === 0 ? (
@@ -787,7 +838,7 @@ export function LogDashboard() {
             )}
           </div>
 
-          {availableColumns.length > 0 && (
+          {!isServiceMode && availableColumns.length > 0 && (
             <div className="mb-3 rounded-md border bg-slate-50 p-3">
               <div className="mb-2 text-xs font-semibold text-slate-700">표시 컬럼</div>
               <div className="flex flex-wrap gap-3">

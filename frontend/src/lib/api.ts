@@ -45,6 +45,10 @@ export interface QueryRequestPayload {
   columns?: string[]
   pageSize?: number
   includeTotal?: boolean
+  includeSessionMessages?: boolean
+  reportMode?: 'default' | 'customer'
+  sortOrder?: 'asc' | 'desc'
+  matchWindowSec?: number
 }
 
 export interface QueryResponse {
@@ -52,6 +56,12 @@ export interface QueryResponse {
   total?: number
   pageSize: number
   hasMore: boolean
+  summary?: {
+    totalRows?: number
+    totalCreditUsed?: number
+    fallbackCount?: number
+    unmatchedCount?: number
+  }
   nextCursor?: {
     afterTs: string
     afterId: string

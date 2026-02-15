@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UserCog, LogOut } from 'lucide-react'
+import { LayoutDashboard, MessageSquareText, UserCog, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Sidebar() {
@@ -26,6 +26,17 @@ export function Sidebar() {
         >
           <LayoutDashboard size={18} />
           User Logs
+        </NavLink>
+        <NavLink
+          to="/service-logs"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`
+          }
+        >
+          <MessageSquareText size={18} />
+          서비스 로그
         </NavLink>
 
         {isAdmin && (

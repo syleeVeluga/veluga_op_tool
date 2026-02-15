@@ -12,8 +12,10 @@ export const DATA_TYPES: DataType[] = [
 export interface DataTypeGuide {
   label: string
   description: string
+  serviceDescription?: string
   customerKey: string
   customerInputHint: string
+  serviceCustomerInputHint?: string
   customerExample: string
   supportsUserLookup: boolean
 }
@@ -22,8 +24,10 @@ export const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
   conversations: {
     label: '대화 로그',
     description: '채팅/대화 단위 로그를 조회합니다.',
+    serviceDescription: '고객 보고용 질문+최종답변(턴) 기준 서비스 로그를 조회합니다.',
     customerKey: 'creator (사용자 ID)',
     customerInputHint: '사용자 ID가 필요합니다. 이메일/이름을 알면 상단 고객 검색으로 찾을 수 있습니다.',
+    serviceCustomerInputHint: '서비스 로그는 고객 ID 기준으로 세션 내 질문/답변을 자동 매핑합니다.',
     customerExample: '예: 65f0c1e2d3a4b5c6d7e8f901',
     supportsUserLookup: true,
   },
