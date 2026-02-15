@@ -67,7 +67,7 @@ export const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
     label: '사용자 활동 로그',
     description: '세션/채널 기반 활동 로그를 조회합니다.',
     customerKey: 'channel',
-    customerInputHint: '운영자가 알고 있는 채널 ID를 Customer ID에 그대로 입력하세요.',
+    customerInputHint: '운영자가 알고 있는 채널 ID를 고객 ID에 그대로 입력하세요.',
     customerExample: '예: channel_abc123',
     supportsUserLookup: false,
   },

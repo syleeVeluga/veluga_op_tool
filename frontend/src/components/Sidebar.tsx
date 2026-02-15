@@ -25,7 +25,7 @@ export function Sidebar() {
           }
         >
           <LayoutDashboard size={18} />
-          User Logs
+          사용자 로그
         </NavLink>
         <NavLink
           to="/service-logs"
@@ -53,7 +53,7 @@ export function Sidebar() {
               }
             >
               <UserCog size={18} />
-              User Management
+              사용자 관리
             </NavLink>
           </>
         )}
@@ -74,7 +74,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
         >
           <LogOut size={14} />
-          Sign out
+          로그아웃
         </button>
       </div>
     </div>

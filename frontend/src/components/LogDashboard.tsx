@@ -319,7 +319,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     }
 
     if (!normalizedCustomerId) {
-      const message = 'Customer ID를 입력해 주세요.'
+      const message = '고객 ID를 입력해 주세요.'
       setExportNotice(message)
       setCustomerError(message)
       return
@@ -417,7 +417,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     }
 
     if (!normalizedCustomerId) {
-      const message = 'Customer ID를 입력해 주세요.'
+      const message = '고객 ID를 입력해 주세요.'
       setChannelError(message)
       setCustomerError(message)
       setChannelOptions([])
@@ -464,7 +464,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     }
 
     if (!normalizedCustomerId) {
-      const message = 'Customer ID를 입력해 주세요.'
+      const message = '고객 ID를 입력해 주세요.'
       setQueryError(message)
       setCustomerError(message)
       return
@@ -581,13 +581,13 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             {/* Customer Search */}
             {selectedGuide.supportsUserLookup && (
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">고객 검색 (자동완성)</span>
                 <Input
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
                   placeholder="이름/이메일/ID 2글자 이상"
                 />
-                <div className="mt-1 text-xs text-slate-500">선택 시 Customer ID 필드가 자동 입력됩니다.</div>
+                <div className="mt-1 text-xs text-slate-500">선택 시 고객 ID 필드가 자동 입력됩니다.</div>
                 {customerLoading && <div className="mt-1 text-xs text-slate-500">검색 중...</div>}
                 {customerError && <div className="mt-1 text-xs text-red-600">{customerError}</div>}
                 {!customerLoading && customerOptions.length > 0 && (
@@ -619,7 +619,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             )}
 
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-600">데이터 유형</span>
+              <span className="mb-1 block text-xs font-semibold text-slate-700">데이터 유형</span>
               <select
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={dataType}
@@ -635,7 +635,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             </label>
 
             <div className="rounded-md border bg-slate-50 p-3">
-              <div className="text-xs font-semibold text-slate-700">Data Type 안내</div>
+              <div className="text-xs font-semibold text-slate-700">데이터 유형 안내</div>
               <p className="mt-1 text-xs text-slate-600">{isServiceMode ? selectedGuide.serviceDescription ?? selectedGuide.description : selectedGuide.description}</p>
               <p className="mt-1 text-xs text-slate-600">조회 식별자 키: {selectedGuide.customerKey}</p>
               {dataType === 'billing_logs' && (
@@ -643,9 +643,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               )}
             </div>
 
-            {/* Customer ID Input */}
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-600">고객 ID</span>
+              <span className="mb-1 block text-xs font-semibold text-slate-700">고객 ID</span>
                 <Input
                     value={customerId}
                     onChange={(e) => {
@@ -673,7 +672,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                   >
                     {channelLoading ? '채널 조회 중...' : '채널 조회'}
                   </Button>
-                  <p className="text-xs text-slate-500">Customer ID 기준(기간 무관)으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
+                  <p className="text-xs text-slate-500">고객 ID 기준(기간 무관)으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
                 </div>
 
                 {channelError && <p className="text-xs text-red-600">{channelError}</p>}
@@ -718,12 +717,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             )}
 
             <div className="rounded-md border border-dashed bg-white p-3 text-xs text-slate-600">
-              2단계 · 아래 조건을 확인한 뒤 로그 조회를 실행합니다.
+              <span className="font-semibold text-slate-700">2단계 · </span>아래 조건을 확인한 뒤 로그 조회를 실행합니다.
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">시작 일시</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">시작 일시</span>
                 <Input
                   type="datetime-local"
                   value={startAt}
@@ -736,7 +735,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">종료 일시</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">종료 일시</span>
                 <Input
                   type="datetime-local"
                   value={endAt}
@@ -751,7 +750,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">페이지 크기</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-700">페이지 크기</span>
                 <Input
                   type="number"
                   min={1}
