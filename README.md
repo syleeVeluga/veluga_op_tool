@@ -40,6 +40,13 @@
   - `POST /api/data/summary/period`
   - `POST /api/data/summary/by-data-type`
   - `GET /api/customers/search?q=`
+- 서버 스트리밍 Export API
+  - `POST /api/data/export-csv`
+  - `POST /api/data/export-json`
+  - 선택적 gzip(`?gzip=1`) 지원
+- 전역 에러 핸들링
+  - `backend/src/middleware/errorHandler.ts`
+  - 구조화된 오류 응답: `{ error: { code, message, details? } }`
 - Docker 멀티스테이지 빌드 (`backend/Dockerfile`)
 - Cloud Run 배포 스크립트 (`scripts/deploy-cloudrun.ps1`)
   - 환경변수 주입(`-SetEnvVars`)
@@ -60,10 +67,10 @@
   - partner ID 기반 사용자 확장 조회(`users.members`)
   - 고객 검색 상단 배치 + 채널 조회/선택 기반 2단계 조회 UX
   - `conversations`에서 채널 선택 시 대화 로그 자동 조회
+  - 공통 UI 컴포넌트 분리(`frontend/src/components/ui/`)
+    - `Button`, `Input`, `Skeleton`, `DataTable`
 
 미구현(다음 단계):
-
-- 서버 측 CSV/JSON Export 엔진(API 기반 대용량 스트리밍)
 - 프리셋 저장/불러오기 고도화
 
 진행상황 문서는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 아키텍처는 [ARCHITECTURE.md](ARCHITECTURE.md)에서 확인할 수 있습니다.

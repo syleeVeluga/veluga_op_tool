@@ -42,6 +42,13 @@
   - `POST /api/data/export-csv`
   - `POST /api/data/export-json`
   - 프로덕션 DB Read-Only 원칙 유지 (쓰기/스키마 변경 없음)
+- 백엔드 전역 에러 핸들링 추가
+  - `backend/src/middleware/errorHandler.ts`
+  - 구조화된 에러 응답 포맷 적용: `{ error: { code, message, details? } }`
+  - `notFoundHandler` + `errorHandler` 전역 등록
+- 프론트 공통 UI 컴포넌트 분리
+  - `frontend/src/components/ui/` (`Button`, `Input`, `Skeleton`, `Table`)
+  - `LogDashboard`에 공통 컴포넌트 적용 (테이블/버튼/입력 필드)
 - 쿼리 가드레일 운영 적용 확인
   - 쿼리 타임아웃: `QUERY_TIMEOUT_MS` (기본 30초)
   - 조회 readPreference: `secondaryPreferred`

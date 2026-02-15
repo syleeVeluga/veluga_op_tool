@@ -245,7 +245,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] AuditLog 컬렉션에 저장
 
 ### 3-11. 에러 핸들링
-- [ ] `backend/src/middleware/errorHandler.ts`
+- [x] `backend/src/middleware/errorHandler.ts`
   - 전역 에러 핸들러, 구조화된 에러 응답
   - `{ error: { code, message, details? } }`
 
@@ -283,7 +283,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] `frontend/src/components/LogDashboard.tsx` 내 테이블 구현
   - Tailwind CSS 기반 스타일링, 동적 컬럼 렌더링
   - Nested JSON 데이터 표시 지원
-- [ ] `frontend/src/components/ui/` — 공통 UI 컴포넌트 분리 (Skeleton, Table 등)
+- [x] `frontend/src/components/ui/` — 공통 UI 컴포넌트 분리 (Skeleton, Table 등)
 
 ### 5-2. 컬럼 선택
 - [x] 컬럼 토글 UI 구현 및 로컬 스토리지 저장
