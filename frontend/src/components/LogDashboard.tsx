@@ -21,6 +21,8 @@ import {
     triggerBlobDownload,
 } from '../lib/utils'
 import { 
+  clearStoredDashboardState,
+  getDefaultQueryUiSettings,
     loadStoredFilterState, 
     saveStoredFilterState, 
     loadStoredColumns, 
@@ -503,6 +505,45 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     )
   }
 
+  const onResetAll = () => {
+    const shouldReset = window.confirm('저장된 필터/컬럼/조회 설정과 현재 결과를 모두 초기화할까요?')
+    if (!shouldReset) {
+      return
+    }
+
+    clearStoredDashboardState()
+
+    const defaults = getDefaultQueryUiSettings()
+    const nextDataType = isServiceMode ? 'conversations' : defaults.dataType
+
+    setDataType(nextDataType)
+    setCustomerId('')
+    setCustomerQuery('')
+    setCustomerOptions([])
+    setCustomerLoading(false)
+    setCustomerError(null)
+    setChannelOptions([])
+    setChannelLoading(false)
+    setChannelError(null)
+    setStartAt(defaults.startAt)
+    setEndAt(defaults.endAt)
+    setPageSize(defaults.pageSize)
+    setIncludeTotal(defaults.includeTotal)
+    setSortOrder(defaults.sortOrder)
+    setFilterInputs({})
+    setSelectedColumns([])
+    setRows([])
+    setTotal(undefined)
+    setHasMore(false)
+    setQueryLoading(false)
+    setQueryError(null)
+    setQueryHistory([])
+    setExportLoading(false)
+    setExportNotice('초기화가 완료되었습니다.')
+    setJsonGzipEnabled(false)
+    setReportSummary(null)
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <section className="rounded-lg border bg-white p-4 lg:col-span-4 h-fit">
@@ -825,6 +866,15 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {queryLoading ? '로그 조회 중...' : '로그 조회'}
+            </button>
+
+            <button
+              type="button"
+              onClick={onResetAll}
+              disabled={queryLoading || schemaLoading || exportLoading}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              전체 초기화
             </button>
 
           </form>

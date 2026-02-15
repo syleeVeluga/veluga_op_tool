@@ -8,6 +8,16 @@ const FILTER_SETTINGS_STORAGE_KEY = 'user-log-dashboard:filter-settings:v1'
 const AUTH_SESSION_STORAGE_KEY = 'user-log-dashboard:auth-session:v1'
 const COLUMN_SETTINGS_STORAGE_KEY = 'user-log-dashboard:selected-columns:v1'
 
+export function clearStoredDashboardState(): void {
+  try {
+    window.localStorage.removeItem(QUERY_SETTINGS_STORAGE_KEY)
+    window.localStorage.removeItem(FILTER_SETTINGS_STORAGE_KEY)
+    window.localStorage.removeItem(COLUMN_SETTINGS_STORAGE_KEY)
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
 export function loadStoredFilterState(dataType: DataType): StoredFilterState | null {
   try {
     const raw = window.localStorage.getItem(FILTER_SETTINGS_STORAGE_KEY)
