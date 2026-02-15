@@ -32,6 +32,7 @@ import {
     sanitizeStoredFilters
 } from '../lib/storage'
 import type { FilterInputState, QueryHistoryItem } from '../types/ui'
+import { Button, DataTable, Input } from './ui'
 
 type DashboardMode = 'default' | 'service'
 
@@ -555,8 +556,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             {selectedGuide.supportsUserLookup && (
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">고객 검색 (자동완성)</span>
-                <input
-                  className="w-full rounded-md border px-3 py-2 text-sm"
+                <Input
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
                   placeholder="이름/이메일/ID 2글자 이상"
@@ -617,8 +617,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             {/* Customer ID Input */}
             <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Customer ID</span>
-                <input
-                    className="w-full rounded-md border px-3 py-2 text-sm"
+                <Input
                     value={customerId}
                     onChange={(e) => {
                     const nextCustomerId = e.target.value
@@ -637,14 +636,14 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               <div className="space-y-2 rounded-md border bg-slate-50 p-3">
                 <div className="text-xs font-semibold text-slate-700">1단계 · 채널 조회/선택</div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  <Button
+                    size="sm"
+                    className="shrink-0"
                     onClick={onLoadCustomerChannels}
                     disabled={channelLoading || queryLoading || schemaLoading}
                   >
                     {channelLoading ? '채널 조회 중...' : '채널 조회'}
-                  </button>
+                  </Button>
                   <p className="text-xs text-slate-500">Customer ID 기준(기간 무관)으로 채널 목록을 불러온 뒤 선택할 수 있습니다.</p>
                 </div>
 
@@ -696,9 +695,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Start</span>
-                <input
+                <Input
                   type="datetime-local"
-                  className="w-full rounded-md border px-3 py-2 text-sm"
                   value={startAt}
                   onChange={(e) => {
                     setStartAt(e.target.value)
@@ -710,9 +708,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">End</span>
-                <input
+                <Input
                   type="datetime-local"
-                  className="w-full rounded-md border px-3 py-2 text-sm"
                   value={endAt}
                   onChange={(e) => {
                     setEndAt(e.target.value)
@@ -726,11 +723,10 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Page Size</span>
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={1000}
-                  className="w-full rounded-md border px-3 py-2 text-sm"
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value) || 100)}
                 />
@@ -784,8 +780,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                     <div key={filter.key}>
                       <div className="mb-1 text-xs text-slate-600">{filter.label}</div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input
-                          className="rounded-md border px-2 py-1 text-sm"
+                        <Input
+                          className="w-auto px-2 py-1"
                           placeholder="min"
                           value={minValue}
                           onChange={(e) =>
@@ -798,8 +794,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                             }))
                           }
                         />
-                        <input
-                          className="rounded-md border px-2 py-1 text-sm"
+                        <Input
+                          className="w-auto px-2 py-1"
                           placeholder="max"
                           value={maxValue}
                           onChange={(e) =>
@@ -845,8 +841,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                 return (
                   <label key={filter.key} className="block">
                     <span className="mb-1 block text-xs text-slate-600">{filter.label}</span>
-                    <input
-                      className="w-full rounded-md border px-2 py-1 text-sm"
+                    <Input
+                      className="px-2 py-1"
                       value={asStringValue(filterInputs[filter.key])}
                       onChange={(e) =>
                         setFilterInputs((prev) => ({
@@ -860,22 +856,22 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               })}
             </div>
 
-            <button
+            <Button
               type="submit"
+              variant="primary"
+              fullWidth
               disabled={queryLoading || schemaLoading}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {queryLoading ? '로그 조회 중...' : '로그 조회'}
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              fullWidth
               onClick={onResetAll}
               disabled={queryLoading || schemaLoading || exportLoading}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               전체 초기화
-            </button>
+            </Button>
 
           </form>
         </section>
@@ -884,26 +880,24 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">결과 영역</h2>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              <Button
+                size="sm"
                 disabled={rows.length === 0 || queryLoading || exportLoading}
                 onClick={() => {
                   void onExportClick('csv')
                 }}
               >
                 {exportLoading ? '내보내는 중...' : 'CSV 다운로드'}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              </Button>
+              <Button
+                size="sm"
                 disabled={rows.length === 0 || queryLoading || exportLoading}
                 onClick={() => {
                   void onExportClick('json')
                 }}
               >
                 {jsonGzipEnabled ? 'JSON 다운로드(.gz)' : 'JSON 다운로드'}
-              </button>
+              </Button>
               <label className="flex items-center gap-1 text-xs text-slate-600">
                 <input
                   type="checkbox"
@@ -970,36 +964,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
           {queryError && <p className="mb-3 text-sm text-red-600">{queryError}</p>}
 
-          {rows.length === 0 ? (
-            <p className="text-sm text-slate-500">조회 결과가 없습니다. 왼쪽 필터에서 조건을 입력한 뒤 조회를 실행하세요.</p>
-          ) : (
-            <div className="overflow-auto rounded-md border">
-              <table className="min-w-full border-collapse text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700">
-                  <tr>
-                    {resultColumns.map((column) => (
-                      <th key={column} className="border-b px-2 py-2 font-semibold">
-                        {column}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="odd:bg-white even:bg-slate-50">
-                      {resultColumns.map((column) => (
-                        <td key={`${rowIndex}-${column}`} className="max-w-xs border-b px-2 py-2 align-top">
-                          {typeof row[column] === 'object' && row[column] !== null
-                            ? JSON.stringify(row[column])
-                            : String(row[column] ?? '')}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={resultColumns}
+            rows={rows}
+            loading={queryLoading}
+            emptyMessage="조회 결과가 없습니다. 왼쪽 필터에서 조건을 입력한 뒤 조회를 실행하세요."
+          />
         </section>
     </div>
   )
