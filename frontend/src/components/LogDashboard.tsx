@@ -826,7 +826,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
           {isServiceMode && reportSummary && (
             <div className="mb-3 rounded-md border bg-slate-50 p-3 text-xs text-slate-700">
-              요약 · unmatched: {String(reportSummary.unmatchedCount ?? 0)} / fallback: {String(reportSummary.fallbackCount ?? 0)} / totalCreditUsed: {String(reportSummary.totalCreditUsed ?? 0)}
+              요약 · 질문수: {String(reportSummary.totalRows ?? rows.length)} / unmatched: {String(reportSummary.unmatchedCount ?? 0)} / fallback: {String(reportSummary.fallbackCount ?? 0)} / totalCreditUsed: {String(reportSummary.totalCreditUsed ?? 0)}
             </div>
           )}
 
