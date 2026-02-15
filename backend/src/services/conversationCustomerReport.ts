@@ -16,6 +16,7 @@ export interface ConversationCustomerRow {
   creditUsed: number;
   sessionCreditTotal: number;
   matchSource: MatchSource;
+  like: "좋아요" | "나빠요" | "";
 }
 
 export interface ConversationCustomerSummary {
@@ -195,6 +196,87 @@ function findLatestModelBefore(
 
 function roundTo3(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function resolveLikeValue(value: unknown): "좋아요" | "나빠요" | "" {
+  if (typeof value === "boolean") {
+    return value ? "좋아요" : "나빠요";
+  }
+
+  if (typeof value === "number") {
+    if (value > 0) {
+      return "좋아요";
+    }
+
+    if (value < 0) {
+      return "나빠요";
+    }
+
+    return "";
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["like", "liked", "up", "upvote", "thumbsup", "positive", "good", "좋아요"].includes(normalized)) {
+      return "좋아요";
+    }
+
+    if (["dislike", "disliked", "down", "downvote", "thumbsdown", "negative", "bad", "나빠요"].includes(normalized)) {
+      return "나빠요";
+    }
+  }
+
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const nestedCandidates: unknown[] = [
+      obj.like,
+      obj.dislike,
+      obj.status,
+      obj.value,
+      obj.type,
+      obj.sentiment,
+    ];
+
+    for (const candidate of nestedCandidates) {
+      const resolved = resolveLikeValue(candidate);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  return "";
+}
+
+function resolveLikeFromTurn(turn: TurnContext): "좋아요" | "나빠요" | "" {
+  const answerDoc = (turn.answer ?? {}) as Record<string, unknown>;
+  const questionDoc = (turn.question ?? {}) as Record<string, unknown>;
+
+  const candidates: unknown[] = [
+    answerDoc.like,
+    answerDoc.dislike,
+    answerDoc.feedback,
+    answerDoc.feedbackType,
+    answerDoc.reaction,
+    answerDoc.review,
+    answerDoc.rating,
+    questionDoc.like,
+    questionDoc.dislike,
+    questionDoc.feedback,
+    questionDoc.feedbackType,
+    questionDoc.reaction,
+    questionDoc.review,
+    questionDoc.rating,
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = resolveLikeValue(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return "";
 }
 
 function ensureDateRange(request: QueryRequest): { start: Date; end: Date } {
@@ -648,6 +730,7 @@ export async function buildConversationCustomerReport(
       creditUsed: roundTo3(usageAmount),
       sessionCreditTotal: nextSessionTotal,
       matchSource,
+      like: resolveLikeFromTurn(turn),
     });
   }
 

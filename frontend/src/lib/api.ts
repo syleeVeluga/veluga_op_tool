@@ -78,6 +78,11 @@ export interface CustomerSearchResponse {
   customers: CustomerSearchItem[]
 }
 
+export interface CustomerChannelItem {
+  channelId: string
+  channelName?: string
+}
+
 export interface PartnerCustomerResolveResponse {
   partnerId: string
   customerIds: string[]
@@ -159,6 +164,17 @@ export function searchCustomers(query: string): Promise<CustomerSearchResponse> 
 export function resolveCustomersByPartnerId(partnerId: string): Promise<PartnerCustomerResolveResponse> {
   const encoded = encodeURIComponent(partnerId)
   return requestJson<PartnerCustomerResolveResponse>(`/customers/by-partner?partnerId=${encoded}`)
+}
+
+export function fetchCustomerChannels(
+  dataType: DataType,
+  customerId: string,
+): Promise<{ channels: CustomerChannelItem[] }> {
+  const encodedDataType = encodeURIComponent(dataType)
+  const encodedCustomerId = encodeURIComponent(customerId)
+  return requestJson<{ channels: CustomerChannelItem[] }>(
+    `/customers/channels?dataType=${encodedDataType}&customerId=${encodedCustomerId}`,
+  )
 }
 
 export function login(payload: { email: string; password: string }): Promise<{ token: string; user: AuthUser }> {

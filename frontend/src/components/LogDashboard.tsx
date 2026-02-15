@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  type CustomerChannelItem,
   type CustomerSearchItem,
   type DataType,
   fetchSchema,
+  fetchCustomerChannels,
   postDataQuery,
   searchCustomers,
   type DataTypeSchema,
@@ -43,6 +45,7 @@ const SERVICE_REPORT_COLUMNS = [
   'customerId',
   'questionText',
   'finalAnswerText',
+  'like',
   'finalAnswerModel',
   'creditUsed',
   'sessionCreditTotal',
@@ -58,7 +61,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [customerOptions, setCustomerOptions] = useState<CustomerSearchItem[]>([])
   const [customerLoading, setCustomerLoading] = useState(false)
   const [customerError, setCustomerError] = useState<string | null>(null)
-  const [channelOptions, setChannelOptions] = useState<string[]>([])
+  const [channelOptions, setChannelOptions] = useState<CustomerChannelItem[]>([])
   const [channelLoading, setChannelLoading] = useState(false)
   const [channelError, setChannelError] = useState<string | null>(null)
   const [startAt, setStartAt] = useState(initialQuerySettings.startAt)
@@ -116,7 +119,11 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     if (isServiceMode) {
       const set = new Set(availableColumns)
       const ordered = SERVICE_REPORT_COLUMNS.filter((column) => set.has(column))
-      const extras = availableColumns.filter((column) => !SERVICE_REPORT_COLUMNS.includes(column as (typeof SERVICE_REPORT_COLUMNS)[number]))
+      const extras = availableColumns.filter(
+        (column) =>
+          !SERVICE_REPORT_COLUMNS.includes(column as (typeof SERVICE_REPORT_COLUMNS)[number]) &&
+          column !== 'matchScore',
+      )
       return [...ordered, ...extras]
     }
 
@@ -339,33 +346,14 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     setChannelOptions([])
 
     try {
-      const queryPayload = {
-        dataType,
-        customerId: normalizedCustomerId,
-        dateRange: {
-          start: '2000-01-01T00:00:00.000Z',
-          end: new Date().toISOString(),
-        },
-        columns: [channelFilterKey],
-        pageSize: 1000,
-        includeTotal: false,
-      }
+      const result = await fetchCustomerChannels(dataType, normalizedCustomerId)
+      const channels = [...result.channels].sort((left, right) =>
+        left.channelId.localeCompare(right.channelId),
+      )
 
-      console.log('[채널 조회] request:', JSON.stringify(queryPayload))
-      const result = await postDataQuery(queryPayload)
-      console.log('[채널 조회] response: rows=%d, sample=%s', result.rows.length, JSON.stringify(result.rows.slice(0, 3)))
+      setChannelOptions(channels)
 
-      const uniqueChannels = Array.from(
-        new Set(
-          result.rows
-            .map((row) => String(row[channelFilterKey] ?? '').trim())
-            .filter((value) => value.length > 0),
-        ),
-      ).sort((left, right) => left.localeCompare(right))
-
-      setChannelOptions(uniqueChannels)
-
-      if (uniqueChannels.length === 0) {
+      if (channels.length === 0) {
         setChannelError('해당 조건에서 선택 가능한 채널이 없습니다.')
       }
     } catch (error) {
@@ -593,19 +581,19 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                   <div className="max-h-40 overflow-auto rounded-md border bg-white">
                     <ul className="divide-y">
                       {channelOptions.map((channel) => (
-                        <li key={channel}>
+                        <li key={channel.channelId}>
                           <button
                             type="button"
-                            className={`w-full px-3 py-2 text-left text-xs hover:bg-slate-100 ${selectedChannel === channel ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700'}`}
+                            className={`w-full px-3 py-2 text-left text-xs hover:bg-slate-100 ${selectedChannel === channel.channelId ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700'}`}
                             onClick={() => {
                               const nextFilterInputs: FilterInputState = {
                                 ...filterInputs,
-                                [channelFilterKey]: channel,
+                                [channelFilterKey]: channel.channelId,
                               }
 
                               setFilterInputs((prev) => ({
                                 ...prev,
-                                [channelFilterKey]: channel,
+                                [channelFilterKey]: channel.channelId,
                               }))
 
                               if (dataType === 'conversations') {
@@ -613,7 +601,9 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                               }
                             }}
                           >
-                            {channel}
+                            {channel.channelName
+                              ? `${channel.channelId} (${channel.channelName})`
+                              : channel.channelId}
                           </button>
                         </li>
                       ))}

@@ -21,6 +21,7 @@ import {
   resolveCustomersByPartnerId,
   searchCustomers,
 } from "../services/customerSearch";
+import { listCustomerChannels } from "../services/customerChannels";
 import { getSchemaByDataType } from "../services/schemaProvider";
 import {
   getPeriodSummary,
@@ -31,6 +32,12 @@ import {
   type DataTypeSummaryRequest,
 } from "../services/dataTypeSummary";
 import { buildConversationCustomerReport } from "../services/conversationCustomerReport";
+import {
+  streamCsvExport,
+  streamCsvExportFromRows,
+  streamJsonExport,
+  streamJsonExportFromRows,
+} from "../services/exportStreaming";
 
 const dataRouter = Router();
 
@@ -95,6 +102,41 @@ dataRouter.get("/customers/by-partner", async (req, res) => {
     res.status(500).json({
       error: "partner_customer_resolve_failed",
       message: "Failed to resolve customers by partnerId",
+      detail: error instanceof Error ? error.message : "unknown error",
+    });
+  }
+});
+
+dataRouter.get("/customers/channels", async (req, res) => {
+  const rawDataType = typeof req.query.dataType === "string" ? req.query.dataType : "";
+  const dataType = rawDataType.trim();
+  const rawCustomerId = typeof req.query.customerId === "string" ? req.query.customerId : "";
+  const customerId = rawCustomerId.trim();
+
+  if (!isDataType(dataType)) {
+    res.status(400).json({
+      error: "invalid_data_type",
+      message: `Unsupported dataType: ${dataType}`,
+      supportedDataTypes,
+    });
+    return;
+  }
+
+  if (!customerId) {
+    res.status(400).json({
+      error: "invalid_customer_id",
+      message: "customerId is required",
+    });
+    return;
+  }
+
+  try {
+    const channels = await listCustomerChannels(dataType, customerId);
+    res.status(200).json({ channels });
+  } catch (error) {
+    res.status(500).json({
+      error: "customer_channels_failed",
+      message: "Failed to resolve customer channels",
       detail: error instanceof Error ? error.message : "unknown error",
     });
   }
@@ -257,6 +299,72 @@ dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
       message: "Failed to execute query",
       detail: error instanceof Error ? error.message : "unknown error",
     });
+  }
+});
+
+dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) => {
+  const request = res.locals.queryRequest as QueryRequest;
+
+  try {
+    if (
+      request.dataType === "conversations" &&
+      request.includeSessionMessages === true &&
+      request.reportMode === "customer"
+    ) {
+      const report = await buildConversationCustomerReport(request);
+      await streamCsvExportFromRows(
+        request,
+        report.rows.map((row) => ({ ...row })),
+        res
+      );
+      return;
+    }
+
+    await streamCsvExport(request, res);
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: "export_failed",
+        message: "Failed to export CSV",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+      return;
+    }
+
+    res.end();
+  }
+});
+
+dataRouter.post("/data/export-json", validateDataQueryRequest, async (_req, res) => {
+  const request = res.locals.queryRequest as QueryRequest;
+
+  try {
+    if (
+      request.dataType === "conversations" &&
+      request.includeSessionMessages === true &&
+      request.reportMode === "customer"
+    ) {
+      const report = await buildConversationCustomerReport(request);
+      await streamJsonExportFromRows(
+        request,
+        report.rows.map((row) => ({ ...row })),
+        res
+      );
+      return;
+    }
+
+    await streamJsonExport(request, res);
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: "export_failed",
+        message: "Failed to export JSON",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+      return;
+    }
+
+    res.end();
   }
 });
 
