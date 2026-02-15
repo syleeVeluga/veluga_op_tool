@@ -868,11 +868,24 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                         }
                       >
                         <option value="">선택 안함</option>
-                        {filter.options.map((option) => (
-                          <option key={String(option.value)} value={String(option.value)}>
-                            {option.label}
-                          </option>
-                        ))}
+                        {filter.options.map((option) => {
+                          const normalizedOption =
+                            typeof option === 'object' && option !== null && 'value' in option
+                              ? {
+                                  value: String(option.value),
+                                  label: option.label,
+                                }
+                              : {
+                                  value: String(option),
+                                  label: String(option),
+                                }
+
+                          return (
+                            <option key={`${filter.key}-${normalizedOption.value}`} value={normalizedOption.value}>
+                              {normalizedOption.label}
+                            </option>
+                          )
+                        })}
                       </select>
                     </label>
                   )

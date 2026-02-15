@@ -16,7 +16,7 @@ export interface SchemaFilter {
   key: string
   label: string
   type: 'search' | 'select' | 'range'
-  options?: Array<{ label: string; value: string | number | boolean }>
+  options?: Array<string | number | boolean | { label: string; value: string | number | boolean }>
 }
 
 export interface DataTypeSchema {
