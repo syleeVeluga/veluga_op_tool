@@ -107,14 +107,34 @@
   - 비밀번호 초기화 및 권한 관리 UI
 - [x] 프론트엔드-백엔드 연동 확인
 
-### 신규 태스크 (2026-02-15) — 대화 Q/A 세션 매핑
+### 신규 태스크 (2026-02-15) — 대화 Q/A 세션 매핑 by adding "서비스 로그" menu
 
 #### 배경/문제
 - [ ] `conversations` 조회 시 사용자 질문만 노출되는 케이스 확인
   - 현재 `backend/src/config/schema/conversations.ts`의 `customerField=creator` 기준 필터로 인해,
     동일 `session` 내 답변 메시지(다른 `creator`/`creatorType`)가 누락될 수 있음
 
+#### 진행 현황 (2026-02-15 반영)
+- [x] 프론트 사이드바에 **"서비스 로그"** 메뉴 추가 (`/service-logs`)
+- [x] 서비스 로그 페이지에서 `conversations` 고정 + 고객 보고 모드 요청 전송
+  - 요청값: `includeSessionMessages=true`, `reportMode="customer"`, `sortOrder="asc"`, `matchWindowSec=60`
+- [x] 서비스 로그 결과 테이블을 고객 보고서 필수 컬럼 순서로 고정
+  - `occurredAt`, `channel`, `sessionId`, `customerId`, `questionText`, `finalAnswerText`, `finalAnswerModel`, `creditUsed`, `sessionCreditTotal`, `matchSource`
+- [x] 백엔드 `POST /api/data/query`에 고객 보고 모드 분기 추가
+  - 조건: `dataType=conversations` + `includeSessionMessages=true` + `reportMode=customer`
+- [x] 세션 매핑 서비스 신규 구현 (`backend/src/services/conversationCustomerReport.ts`)
+  - `rows`: `occurredAt/channel/sessionId/customerId/questionText/finalAnswerText/finalAnswerModel/creditUsed/sessionCreditTotal/matchSource`
+  - `summary`: `totalRows/totalCreditUsed/fallbackCount/unmatchedCount`
+- [x] 시간 매칭 규칙 반영
+  - 기본: 답변 시각 기준 ±`matchWindowSec` (기본 60초)
+  - 보조: 직전 5분 이내 로그 fallback
+  - 실패: `creditUsed=0`, `finalAnswerModel=unknown`, `matchSource=unmatched`
+- [x] 스모크 테스트 추가 및 실행 확인
+  - `backend/scripts/smoke-conversation-session-mapping.ts`
+  - `npm run test:smoke:conversation-session-mapping`
+
 #### 목표
+- [ ] "배경/문제"를 해결하기 위해 "서비스 로그" 매뉴를 신설
 - [ ] 채널별 조회에서 사용자 질문과 답변을 같은 `session` 기준으로 함께 조회
 - [ ] 결과를 Q/A 분석 가능한 형태(세션/턴 단위)로 제공
 - [ ] 각 질문/답변(또는 턴) 단위로 사용 크레딧(차감량) 표시 가능하도록 로그 결합
@@ -628,6 +648,8 @@ user_log_dashboard/
 
 | 날짜 | 변경 내용 |
 |------|-----------|
+| 2026-02-15 | 서비스 로그 UI 보강: 고객 보고서 필수 컬럼 순서를 고정하고(컬럼 선택 UI 비활성), 보고서 형식 일관성을 강화. |
+| 2026-02-15 | 신규 태스크 1차 구현: 사이드바 "서비스 로그" 메뉴(`/service-logs`) 추가, `POST /api/data/query`의 `conversations` 고객 보고 모드(`includeSessionMessages/reportMode/sortOrder/matchWindowSec`) 분기 구현, `conversationCustomerReport` 서비스(질문+최종답변/모델/크레딧/matchSource/summary) 추가, 스모크 테스트(`test:smoke:conversation-session-mapping`) 추가 및 통과. |
 | 2026-02-15 | 고객 보고용 API 스펙 확정: `/api/data/query`에 `includeSessionMessages/reportMode` 기준 요청 필드, 응답 행(`questionText/finalAnswerText/finalAnswerModel/creditUsed/matchSource`) 및 `summary` 집계 필드, 요청/응답 JSON 예시를 문서화. |
 | 2026-02-15 | 고객 보고용 확정 스펙 추가: 대화 로그 출력 단위를 “질문+최종답변(턴)”으로 고정하고, 필수 컬럼(답변모델/차감크레딧 포함), 시간 매칭 윈도우(±60초/최대 5분), fallback 및 `matchSource` 표기 규칙을 명시. |
 | 2026-02-15 | 신규 태스크 보강: 대화 로그 조회 결과에 최종 답변 모델(`finalAnswerModel`/`aiModel`) 포함 요구사항을 추가하고, 모델 소스 확정·결합 설계·UI 컬럼·스모크 검증 항목까지 반영. |
