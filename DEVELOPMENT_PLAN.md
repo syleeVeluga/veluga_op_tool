@@ -187,7 +187,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] 헷갈림 완화 반영: `billing_logs` 기본 필터(`deletedState=active`) 및 기본 컬럼셋 자동 적용
 - [x] 정산 오해 방지 반영: "요금제 기준 금액(plans.price), 실결제/환불 미지원" 문구 노출
 - [ ] 후속 개선(우선순위)
-  - 라벨 현지화: `Data Type`, `Customer ID`, `Include Total` 등 영문 UI 문구 한글화
+  - [x] 라벨 현지화: `Data Type`, `Customer ID`, `Include Total` 등 영문 UI 문구 한글화
   - 용어 단순화: `billing_logs` 표기를 `결제 로그` 중심으로 통일
   - 초심자 모드 가이드: 첫 진입 시 3단계 사용 안내(고객 선택 → 기간 선택 → 조회/다운로드)
 

@@ -619,7 +619,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             )}
 
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-600">Data Type</span>
+              <span className="mb-1 block text-xs font-medium text-slate-600">데이터 유형</span>
               <select
                 className="w-full rounded-md border px-3 py-2 text-sm"
                 value={dataType}
@@ -628,7 +628,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               >
                 {DATA_TYPES.map((item) => (
                   <option key={item} value={item}>
-                    {DATA_TYPE_GUIDE[item].label} ({item})
+                    {DATA_TYPE_GUIDE[item].label}
                   </option>
                 ))}
               </select>
@@ -645,7 +645,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
             {/* Customer ID Input */}
             <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">Customer ID</span>
+              <span className="mb-1 block text-xs font-medium text-slate-600">고객 ID</span>
                 <Input
                     value={customerId}
                     onChange={(e) => {
@@ -723,7 +723,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">Start</span>
+                <span className="mb-1 block text-xs font-medium text-slate-600">시작 일시</span>
                 <Input
                   type="datetime-local"
                   value={startAt}
@@ -736,7 +736,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">End</span>
+                <span className="mb-1 block text-xs font-medium text-slate-600">종료 일시</span>
                 <Input
                   type="datetime-local"
                   value={endAt}
@@ -751,7 +751,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">Page Size</span>
+                <span className="mb-1 block text-xs font-medium text-slate-600">페이지 크기</span>
                 <Input
                   type="number"
                   min={1}
@@ -767,7 +767,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                   checked={includeTotal}
                   onChange={(e) => setIncludeTotal(e.target.checked)}
                 />
-                Include Total
+                전체 건수 포함
               </label>
             </div>
 
@@ -792,7 +792,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             </div>
 
             <div className="space-y-3 rounded-md border bg-slate-50 p-3">
-              <div className="text-xs font-semibold text-slate-700">Schema Filters</div>
+              <div className="text-xs font-semibold text-slate-700">추가 필터</div>
               {schemaLoading && <p className="text-xs text-slate-500">스키마 로딩 중...</p>}
               {schemaError && <p className="text-xs text-red-600">{schemaError}</p>}
               {!schemaLoading && !schemaError && schema?.filters.length === 0 && (
@@ -934,12 +934,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                   onChange={(event) => setJsonGzipEnabled(event.target.checked)}
                   disabled={exportLoading}
                 />
-                JSON gzip
+                JSON 압축(gzip)
               </label>
               <div className="text-xs text-slate-600">
-                rows: {rows.length}
-                {typeof total === 'number' ? ` / total: ${total}` : ''}
-                {hasMore ? ' / hasMore: true' : ''}
+                조회 건수: {rows.length}
+                {typeof total === 'number' ? ` / 전체: ${total}` : ''}
+                {hasMore ? ' / 추가 페이지 있음' : ''}
               </div>
             </div>
           </div>

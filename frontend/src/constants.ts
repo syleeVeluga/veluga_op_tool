@@ -56,7 +56,7 @@ export const DATA_TYPE_GUIDE: Record<DataType, DataTypeGuide> = {
     supportsUserLookup: false,
   },
   billing_logs: {
-    label: '결제/플랜 이력',
+    label: '결제 로그',
     description: '구독/플랜 변경 및 만료 관련 로그를 조회합니다.',
     customerKey: 'user (사용자 ID)',
     customerInputHint: '사용자 ID가 필요합니다. 이메일/이름으로 고객 검색 후 입력 가능합니다.',
