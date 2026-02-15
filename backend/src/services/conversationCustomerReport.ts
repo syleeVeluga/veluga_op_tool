@@ -7,16 +7,22 @@ export type MatchSource = "direct" | "nearby" | "fallback" | "unmatched";
 
 export interface ConversationCustomerRow {
   occurredAt: string;
+  answerAt: string;
+  responseLatencyMs: number | null;
   channel: string;
   sessionId: string;
   customerId: string;
+  questionCreatorType: string;
+  questionCreatorRaw: string;
   questionText: string;
   finalAnswerText: string;
   finalAnswerModel: string;
+  modelConfidence: number;
   creditUsed: number;
   sessionCreditTotal: number;
   matchSource: MatchSource;
   like: "좋아요" | "나빠요" | "";
+  likeConfidence: number;
 }
 
 export interface ConversationCustomerSummary {
@@ -67,6 +73,11 @@ interface TurnContext {
   channel: string;
   sessionId: string;
   customerId: string;
+}
+
+interface LikeResolution {
+  value: "좋아요" | "나빠요" | "";
+  confidence: number;
 }
 
 const QUESTION_TYPES = new Set(["user", "guest", "customer", "human"]);
@@ -198,6 +209,10 @@ function roundTo3(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
+function roundTo2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function resolveLikeValue(value: unknown): "좋아요" | "나빠요" | "" {
   if (typeof value === "boolean") {
     return value ? "좋아요" : "나빠요";
@@ -248,35 +263,41 @@ function resolveLikeValue(value: unknown): "좋아요" | "나빠요" | "" {
   return "";
 }
 
-function resolveLikeFromTurn(turn: TurnContext): "좋아요" | "나빠요" | "" {
+function resolveLikeFromTurn(turn: TurnContext): LikeResolution {
   const answerDoc = (turn.answer ?? {}) as Record<string, unknown>;
   const questionDoc = (turn.question ?? {}) as Record<string, unknown>;
 
-  const candidates: unknown[] = [
-    answerDoc.like,
-    answerDoc.dislike,
-    answerDoc.feedback,
-    answerDoc.feedbackType,
-    answerDoc.reaction,
-    answerDoc.review,
-    answerDoc.rating,
-    questionDoc.like,
-    questionDoc.dislike,
-    questionDoc.feedback,
-    questionDoc.feedbackType,
-    questionDoc.reaction,
-    questionDoc.review,
-    questionDoc.rating,
+  const weightedCandidates: Array<{ value: unknown; confidence: number }> = [
+    { value: answerDoc.like, confidence: 1 },
+    { value: answerDoc.dislike, confidence: 1 },
+    { value: answerDoc.feedback, confidence: 0.95 },
+    { value: answerDoc.feedbackType, confidence: 0.95 },
+    { value: answerDoc.reaction, confidence: 0.9 },
+    { value: answerDoc.review, confidence: 0.85 },
+    { value: answerDoc.rating, confidence: 0.85 },
+    { value: questionDoc.like, confidence: 0.8 },
+    { value: questionDoc.dislike, confidence: 0.8 },
+    { value: questionDoc.feedback, confidence: 0.75 },
+    { value: questionDoc.feedbackType, confidence: 0.75 },
+    { value: questionDoc.reaction, confidence: 0.7 },
+    { value: questionDoc.review, confidence: 0.65 },
+    { value: questionDoc.rating, confidence: 0.65 },
   ];
 
-  for (const candidate of candidates) {
-    const resolved = resolveLikeValue(candidate);
+  for (const candidate of weightedCandidates) {
+    const resolved = resolveLikeValue(candidate.value);
     if (resolved) {
-      return resolved;
+      return {
+        value: resolved,
+        confidence: roundTo2(candidate.confidence),
+      };
     }
   }
 
-  return "";
+  return {
+    value: "",
+    confidence: 0,
+  };
 }
 
 function ensureDateRange(request: QueryRequest): { start: Date; end: Date } {
@@ -646,7 +667,11 @@ export async function buildConversationCustomerReport(
       continue;
     }
 
-    const answerAt = toDateValue(turn.answer?.createdAt) ?? questionAt;
+    const resolvedAnswerAt = toDateValue(turn.answer?.createdAt);
+    const answerAt = resolvedAnswerAt ?? questionAt;
+    const responseLatencyMs = resolvedAnswerAt
+      ? Math.max(0, resolvedAnswerAt.getTime() - questionAt.getTime())
+      : null;
     const channelUsage = usageByChannel.get(turn.channel) ?? [];
 
     const directCandidates = channelUsage.filter((usage) => {
@@ -686,14 +711,20 @@ export async function buildConversationCustomerReport(
     sessionCreditTotals.set(sessionKey, nextSessionTotal);
 
     let finalAnswerModel = "unknown";
+    let modelConfidence = 0;
     if (turn.answer) {
-      finalAnswerModel = normalizeModelValue((turn.answer as Document).aiModel) ?? "unknown";
+      const modelFromAnswer = normalizeModelValue((turn.answer as Document).aiModel);
+      if (modelFromAnswer) {
+        finalAnswerModel = modelFromAnswer;
+        modelConfidence = 1;
+      }
     }
 
     if (finalAnswerModel === "unknown" && pickedUsage) {
       const modelFromUsage = extractModelFromUsageLog(pickedUsage);
       if (modelFromUsage) {
         finalAnswerModel = modelFromUsage;
+        modelConfidence = matchSource === "direct" ? 0.92 : 0.8;
       }
     }
 
@@ -702,6 +733,7 @@ export async function buildConversationCustomerReport(
       const fallbackModel = findLatestModelBefore(answerAt, timeline);
       if (fallbackModel) {
         finalAnswerModel = fallbackModel;
+        modelConfidence = 0.65;
         if (matchSource === "unmatched") {
           matchSource = "fallback";
         }
@@ -715,22 +747,33 @@ export async function buildConversationCustomerReport(
     if (matchSource === "unmatched") {
       unmatchedCount += 1;
       finalAnswerModel = resolveDefaultModelByMatchSource(matchSource);
+      modelConfidence = 0;
     }
 
     totalCreditUsed = roundTo3(totalCreditUsed + usageAmount);
 
+    const likeResolution = resolveLikeFromTurn(turn);
+    const questionCreatorType = normalizeValue(turn.question.creatorType).toLowerCase() || "unknown";
+    const questionCreatorRaw = normalizeValue(turn.question.creator) || turn.customerId;
+
     rows.push({
       occurredAt: questionAt.toISOString(),
+      answerAt: resolvedAnswerAt ? resolvedAnswerAt.toISOString() : "",
+      responseLatencyMs,
       channel: turn.channel,
       sessionId: turn.sessionId,
       customerId: turn.customerId,
+      questionCreatorType,
+      questionCreatorRaw,
       questionText: (turn.question.text ?? "").trim(),
       finalAnswerText: (turn.answer?.text ?? "").trim(),
       finalAnswerModel,
+      modelConfidence: roundTo2(modelConfidence),
       creditUsed: roundTo3(usageAmount),
       sessionCreditTotal: nextSessionTotal,
       matchSource,
-      like: resolveLikeFromTurn(turn),
+      like: likeResolution.value,
+      likeConfidence: likeResolution.confidence,
     });
   }
 

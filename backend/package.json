@@ -17,7 +17,8 @@
     "test:smoke:period-summary": "tsx scripts/smoke-period-summary-endpoint.ts",
     "test:smoke:data-type-summary": "tsx scripts/smoke-data-type-summary-endpoint.ts",
     "test:smoke:auth-inactive-login": "tsx scripts/smoke-auth-inactive-login.ts",
-    "test:smoke:conversation-session-mapping": "tsx scripts/smoke-conversation-session-mapping.ts"
+    "test:smoke:conversation-session-mapping": "tsx scripts/smoke-conversation-session-mapping.ts",
+    "export:partner:conversations": "tsx scripts/export-partner-conversations.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

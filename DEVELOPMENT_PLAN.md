@@ -216,14 +216,14 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - `occurredAt` (질문 시각)
   - `customerId` (질문자 ID)
   - `channel`, `sessionId`
-- [ ] 내부 보고 확장 컬럼 (1차)
+- [x] 내부 보고 확장 컬럼 (1차)
   - `questionCreatorType`, `questionCreatorRaw` (누가 질문했는지 강화)
   - `answerAt` (응답 시각), `responseLatencyMs` (질문→응답 지연)
   - `matchSource` (direct/nearby/fallback/unmatched)
   - `modelConfidence`, `likeConfidence` (파생값 신뢰도)
 
 ##### B) 구현 트랙
-- [ ] Track 1 — DB 오프라인 추출 스크립트 (운영 요청 즉시 대응)
+- [x] Track 1 — DB 오프라인 추출 스크립트 (운영 요청 즉시 대응)
   - 위치: `backend/scripts/` 신규 스크립트 추가
   - 플로우: `partnerId` → 멤버 확장 → 기간 월분할 → 고객/채널 청크 조회 → 파일 출력
   - 기본값: `customerBatchSize=200`, `channelChunkSize=25`, `maxWorkers=1~2`, `includeTotal=false`
@@ -331,7 +331,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 #### 3-4A. 파트너 기관 대화 로그 추출 API/운영 연계 (신규)
 - [ ] 파트너 단위 조회 파라미터 표준화 (`partnerId`, `dateRange`, `chunkOptions`)
 - [ ] 파트너 멤버 확장 + 보조 검증 결과를 응답 메타에 포함
-- [ ] 내부 보고용 추가 컬럼(`questionCreatorType`, `answerAt`, `responseLatencyMs`) 지원
+- [x] 내부 보고용 추가 컬럼(`questionCreatorType`, `answerAt`, `responseLatencyMs`) 지원
 - [ ] 장기 기간 요청 시 강제 윈도우 분할(월 단위) 및 실행 계획 반환
 - [ ] 대량 추출 요청에 대해 `job-like` 실행 메타(`processedChunks`, `failedChunks`, `elapsedMs`) 제공
 

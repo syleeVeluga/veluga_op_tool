@@ -72,12 +72,18 @@ async function run() {
     if (payload.rows.length > 0) {
       const first = payload.rows[0];
       assert.ok("occurredAt" in first, "row should include occurredAt");
+      assert.ok("answerAt" in first, "row should include answerAt");
+      assert.ok("responseLatencyMs" in first, "row should include responseLatencyMs");
+      assert.ok("questionCreatorType" in first, "row should include questionCreatorType");
+      assert.ok("questionCreatorRaw" in first, "row should include questionCreatorRaw");
       assert.ok("questionText" in first, "row should include questionText");
       assert.ok("finalAnswerText" in first, "row should include finalAnswerText");
       assert.ok("finalAnswerModel" in first, "row should include finalAnswerModel");
+      assert.ok("modelConfidence" in first, "row should include modelConfidence");
       assert.ok("creditUsed" in first, "row should include creditUsed");
       assert.ok("sessionCreditTotal" in first, "row should include sessionCreditTotal");
       assert.ok("matchSource" in first, "row should include matchSource");
+      assert.ok("likeConfidence" in first, "row should include likeConfidence");
     }
 
     console.log("Smoke test passed: conversation session mapping customer report mode");

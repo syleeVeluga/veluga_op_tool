@@ -36,6 +36,14 @@
   - 2트랙 확정: 단기(DB 오프라인 추출) + 중기(API 표준 워크플로우)
   - 메뉴 신설 확정: `/partner-logs` (권한 기반 노출)
   - 내부 보고 확장 컬럼(누가/언제/신뢰도) 및 저부하 가드레일 원칙 반영
+- 내부 보고 확장 컬럼(1차) 구현 완료
+  - `questionCreatorType`, `questionCreatorRaw`
+  - `answerAt`, `responseLatencyMs`
+  - `modelConfidence`, `likeConfidence`
+  - 서비스 로그 기본 컬럼 순서 반영 + 스모크 테스트 검증 항목 추가
+- 파트너 Track 1 오프라인 추출 스크립트 구현 완료
+  - 실행: `npm run export:partner:conversations -- --partnerId <ID> --start <ISO> --end <ISO>`
+  - 기능: 월 단위 윈도우 분할, 고객/채널 청크, 재시도, NDJSON + summary 파일 출력
 
 - 서비스 로그 전용 메뉴/페이지 추가 (`/service-logs`)
 - `conversations` 고객 보고 모드 요청값 반영

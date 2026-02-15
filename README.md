@@ -40,6 +40,9 @@
   - `POST /api/data/summary/period`
   - `POST /api/data/summary/by-data-type`
   - `GET /api/customers/search?q=`
+- 파트너 기관 오프라인 추출 스크립트
+  - `npm run export:partner:conversations -- --partnerId <ID> --start <ISO> --end <ISO>`
+  - 월 단위 윈도우 + 고객/채널 청크 + 재시도/요약 파일 출력 지원
 - 서버 스트리밍 Export API
   - `POST /api/data/export-csv`
   - `POST /api/data/export-json`
@@ -63,6 +66,7 @@
   - CSV/JSON 클라이언트 다운로드(선택 컬럼 기준)
   - 운영자 가이드: dataType별 식별자 키 안내
   - 서비스 로그 전용 페이지(`/service-logs`) + 고객 보고 모드 조회
+    - 내부 보고 확장 컬럼: `questionCreatorType`, `questionCreatorRaw`, `answerAt`, `responseLatencyMs`, `modelConfidence`, `likeConfidence`
   - 로그 기본 정렬 토글(오름차순/최신순) + 정렬 상태 저장
   - partner ID 기반 사용자 확장 조회(`users.members`)
   - 고객 검색 상단 배치 + 채널 조회/선택 기반 2단계 조회 UX
@@ -204,6 +208,9 @@ npm run start
 
 # 최소 스모크 테스트
 npm run test:smoke:schema
+
+# 파트너 기관 오프라인 추출
+npm run export:partner:conversations -- --partnerId <ID> --start 2026-01-01T00:00:00.000Z --end 2026-01-31T23:59:59.999Z
 ```
 
 Docker 이미지 빌드 예시:
