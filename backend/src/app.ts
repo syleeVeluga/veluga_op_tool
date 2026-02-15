@@ -4,12 +4,15 @@ import {
   checkMongoConnection,
   getMongoConnectionStatus,
 } from "./config/database";
+import { ensureDnsServers } from "./config/dns";
 import { env } from "./config/env";
 import { adminUsersRouter } from "./routes/adminUsers";
 import { authRouter } from "./routes/auth";
 import { dataRouter } from "./routes/data";
 
 export function createApp() {
+  ensureDnsServers();
+
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));

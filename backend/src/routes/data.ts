@@ -30,6 +30,7 @@ import {
   getDataTypeSummary,
   type DataTypeSummaryRequest,
 } from "../services/dataTypeSummary";
+import { buildConversationCustomerReport } from "../services/conversationCustomerReport";
 
 const dataRouter = Router();
 
@@ -159,6 +160,24 @@ dataRouter.post(
 
 dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
   const request = res.locals.queryRequest as QueryRequest;
+
+  if (
+    request.dataType === "conversations" &&
+    request.includeSessionMessages === true &&
+    request.reportMode === "customer"
+  ) {
+    try {
+      const report = await buildConversationCustomerReport(request);
+      res.status(200).json(report);
+    } catch (error) {
+      res.status(500).json({
+        error: "query_failed",
+        message: "Failed to execute conversations customer report query",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+    return;
+  }
 
   const schema = schemaRegistry[request.dataType];
   const pipeline = buildAggregationPipeline(request);

@@ -32,6 +32,10 @@ export interface QueryRequest {
   pageSize?: number;
   includeTotal?: boolean;
   cursor?: QueryCursor;
+  includeSessionMessages?: boolean;
+  reportMode?: "default" | "customer";
+  sortOrder?: "asc" | "desc";
+  matchWindowSec?: number;
 }
 
 function assertNonEmptyString(value: string, fieldName: string): void {
