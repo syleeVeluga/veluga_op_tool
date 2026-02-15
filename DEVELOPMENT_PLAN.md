@@ -177,7 +177,6 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - `usage` 정규화 projection 추가
 - [x] `backend/src/services/periodSummary.ts` 보강
   - `billing_logs` 요약 지표(활성/만료/플랜분포) 추가
-- [ ] `frontend/src/pages/ServiceLogPage.tsx` / `LogDashboard.tsx` 보강
 - [x] `frontend/src/pages/ServiceLogPage.tsx` / `LogDashboard.tsx` 보강
   - [x] `billing_logs` 선택 시 컬럼 기본셋/필터셋 적용
   - [x] "요금제 기준 금액" 안내 문구 표시
@@ -191,9 +190,79 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - 용어 단순화: `billing_logs` 표기를 `결제 로그` 중심으로 통일
   - 초심자 모드 가이드: 첫 진입 시 3단계 사용 안내(고객 선택 → 기간 선택 → 조회/다운로드)
 
+#### 2-1C. 파트너 기관 대화 로그 추출 계획 (2026-02-15)
+
+> 배경: 파트너 계정(학교/기업 독립 클라우드 운영)에서 기관 단위 전체 대화 로그를 요청하며,
+> 현재 전제는 Production DB Read-Only 접근만 가능.
+
+- [x] 조사 결론: 현재 구조로 "기관 단위 대화 로그 추출"은 가능
+  - 근거 1) 파트너 → 멤버 고객 ID 확장 로직 존재 (`users.members` + owner)
+  - 근거 2) 대화 리포트/배치 조회/CSV·JSON export 경로 존재
+  - 근거 3) readPreference, maxTimeMS, 청크 분할 등 저부하 가드레일 기반 운영 가능
+- [x] 핵심 원칙 확정
+  - 2트랙 운영: 단기(오프라인 스크립트) + 중기(API 표준화)
+  - DB 영향 최소화: 월 단위 윈도우 + 고객/채널 청크 + 낮은 동시성
+  - 기관 범위: `users.members` 기준 + 보조 검증 쿼리 병행
+  - 보안: 권한 보유 운영자만 실행 + 감사로그 필수
+
+##### A) 파트너 추출 범위 및 출력 컬럼
+- [x] 필수 출력(요청 반영)
+  - `questionText` (사용자 질문)
+  - `finalAnswerText` (AI 최종 답변)
+  - `creditUsed` (질의 기준 사용 크레딧)
+  - `like` (좋아요/나빠요/없음)
+  - `finalAnswerModel` (최종 답변 모델)
+- [x] 기본 식별/시간 컬럼
+  - `occurredAt` (질문 시각)
+  - `customerId` (질문자 ID)
+  - `channel`, `sessionId`
+- [ ] 내부 보고 확장 컬럼 (1차)
+  - `questionCreatorType`, `questionCreatorRaw` (누가 질문했는지 강화)
+  - `answerAt` (응답 시각), `responseLatencyMs` (질문→응답 지연)
+  - `matchSource` (direct/nearby/fallback/unmatched)
+  - `modelConfidence`, `likeConfidence` (파생값 신뢰도)
+
+##### B) 구현 트랙
+- [ ] Track 1 — DB 오프라인 추출 스크립트 (운영 요청 즉시 대응)
+  - 위치: `backend/scripts/` 신규 스크립트 추가
+  - 플로우: `partnerId` → 멤버 확장 → 기간 월분할 → 고객/채널 청크 조회 → 파일 출력
+  - 기본값: `customerBatchSize=200`, `channelChunkSize=25`, `maxWorkers=1~2`, `includeTotal=false`
+  - 재시작: `resumeCursor(createdAt,_id)` 기반 체크포인트
+- [ ] Track 2 — API 표준 워크플로우 (반복 운영/권한 통제)
+  - 플로우: 파트너 멤버 해석 → 채널 해석 → 대화 배치 조회 API → export API 연계
+  - 운영 파라미터를 환경변수/요청값으로 통제
+
+##### C) 저부하 운영 가드레일 (필수)
+- [ ] 쿼리 기본 정책
+  - `readPreference=secondaryPreferred`
+  - `maxTimeMS` 강제
+  - 필요한 컬럼만 projection
+  - 월 단위 기간 윈도우 고정(장기 기간 일괄 조회 금지)
+- [ ] 실행 정책
+  - 동시 실행 수 제한(기본 1, 최대 2)
+  - 청크 간 짧은 휴지시간 도입(과부하 완화)
+  - 실패 청크 재시도(최대 횟수 제한) + 실패 목록 리포트
+
+##### D) 보안/감사(게이트)
+- [ ] 데이터 추출 라우트 인증/인가 강제
+  - 권한 보유 운영자만 파트너 단위 대량 추출 실행 가능
+- [ ] 감사 로그 필수 저장
+  - `actorUserId`, `actorEmail`, `action`, `partnerId`, `dateRange`, `resultCount`, `elapsedMs`, `status`, `requestedAt`
+  - 정산/감사 목적의 추출 이력 추적 가능해야 함
+
+##### E) 검증 및 완료 기준
+- [ ] 정확도 검증
+  - 동일 기간에서 서비스 로그 조회 결과와 샘플 대조(질문/답변/크레딧/like/모델)
+  - `users.members` 대비 실제 추출 고객 포함률 점검(누락/중복 보고)
+- [ ] 성능/안정성 검증
+  - 청크 단위 `elapsedMs`, timeout 비율, 재시도율 수집
+  - 운영 임계치 초과 시 청크/동시성 파라미터 자동 하향
+- [ ] 산출물 표준화
+  - 상세 파일 + 실행 요약 파일(요청자/시각/범위/건수/실패 청크)
+
 ### 2-1. 데이터 유형별 스키마 설정 파일
 - [x] `backend/src/config/schema/conversations.ts` (스켈레톤)
-  - collection: `conversations`, customerField: `userId`, timestampField: `timestamp`
+  - collection: `prod.chats`, customerField: `creator`, timestampField: `createdAt`
   - 필터: 모델명(select), 토큰사용량(range)
 - [x] `backend/src/config/schema/api_usage_logs.ts` (스켈레톤)
   - 필터: endpoint(search), method(select), statusCode(select)
@@ -258,6 +327,13 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] Zod 입력 검증 → queryBuilder로 파이프라인 생성 → MongoDB 실행
 - [x] 응답: `{ rows, total?, pageSize, nextCursor?, hasMore }`
 - [x] 미리보기 기본 100행
+
+#### 3-4A. 파트너 기관 대화 로그 추출 API/운영 연계 (신규)
+- [ ] 파트너 단위 조회 파라미터 표준화 (`partnerId`, `dateRange`, `chunkOptions`)
+- [ ] 파트너 멤버 확장 + 보조 검증 결과를 응답 메타에 포함
+- [ ] 내부 보고용 추가 컬럼(`questionCreatorType`, `answerAt`, `responseLatencyMs`) 지원
+- [ ] 장기 기간 요청 시 강제 윈도우 분할(월 단위) 및 실행 계획 반환
+- [ ] 대량 추출 요청에 대해 `job-like` 실행 메타(`processedChunks`, `failedChunks`, `elapsedMs`) 제공
 
 #### 기간별 요청 대응 (월말/분기/반기) 후속
 - [x] `POST /api/data/query`에 `includeTotal` 플래그 추가 및 `total` 반환
@@ -327,6 +403,8 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - 조회/다운로드 요청마다 자동 기록
   - 저장: `{ userId, email, action, dataType, filters, resultCount, exportType, timestamp }`
 - [ ] AuditLog 컬렉션에 저장
+- [ ] 파트너 추출 감사 필드 확장
+  - 저장: `{ actorUserId, actorEmail, partnerId, memberCount, dateRange, processedChunks, failedChunks, elapsedMs, status, requestedAt }`
 
 ### 3-11. 에러 핸들링
 - [x] `backend/src/middleware/errorHandler.ts`
@@ -341,6 +419,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] `frontend/src/layouts/DashboardLayout.tsx` — 헤더+사이드바+메인 구조 적용
 - [x] `frontend/src/components/Sidebar.tsx` — 권한 기반 동적 메뉴 구현
 - [x] 라우트 구성: `/` (user logs), `/service-logs`, `/admin/users`, `/login`
+- [ ] 라우트 추가: `/partner-logs` (파트너 기관 로그 전용)
 
 ### 4-2. 인증 플로우
 - [x] `frontend/src/pages/LoginPage.tsx` — 이메일+비밀번호 로그인 폼
@@ -358,6 +437,20 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ### 4-4. API 연동 훅
 - [x] `frontend/src/lib/api.ts` — API 클라이언트 함수 모음
 - [x] `frontend/src/lib/storage.ts` — 로컬 스토리지 상태 저장/복원 로직 분리
+
+### 4-5. 파트너 로그 메뉴/페이지 신설 (MVP)
+- [ ] `frontend/src/pages/PartnerLogPage.tsx` 신규
+  - 파트너 ID 입력/선택, 기간 선택, 실행 버튼, 진행 메타 표시
+- [ ] `frontend/src/components/Sidebar.tsx` 메뉴 항목 추가
+  - 메뉴명: `파트너 로그`
+  - 권한 없는 사용자 비노출
+- [ ] `frontend/src/App.tsx` 라우트/가드 추가
+  - `/partner-logs` 접근 시 메뉴 권한 + 데이터 권한 동시 검사
+- [ ] `frontend/src/components/LogDashboard.tsx`와 역할 분리
+  - 일반 서비스 로그 흐름과 파트너 대량 추출 흐름 분리
+- [ ] UX 가드레일
+  - 장기 기간 요청 시 월 단위 자동 분할 안내
+  - 기본 동시성/청크 정책 안내 문구 노출
 
 ---
 
@@ -413,6 +506,8 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] Sidebar에서 `allowedMenus` 기반 메뉴 필터링
 - [ ] ProtectedRoute에서 메뉴 + 데이터 유형 접근 검사
 - [ ] 직접 URL 접근 차단 → 403 안내 페이지
+- [ ] `partner-logs` 전용 권한 키 추가 (`allowedMenus`)
+  - 권한 보유 운영자만 메뉴 노출/URL 접근 허용
 
 ---
 
@@ -428,6 +523,9 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] 조회 응답 < 3초 (1000건 기준) — NF-08
 - [ ] CSV 생성 < 5초 (10000건 기준) — NF-09
 - [ ] 동시 사용자 10명 — NF-10
+- [ ] 파트너 대량 추출 부하 검증
+  - 월 단위/청크 단위 실행 시 프로덕션 DB 영향(타임아웃, 지연) 임계치 이내 확인
+  - 기본 동시성(1~2)에서 기관 규모별 완료 시간 산정표 작성
 
 ### 8-3. 배포
 - [ ] Frontend GitHub Pages 배포 워크플로우 (`.github/workflows/deploy-frontend.yml`)
