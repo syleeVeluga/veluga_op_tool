@@ -116,6 +116,13 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
 
   const isServiceMode = mode === 'service'
+  const selectableDataTypes = useMemo<DataType[]>(() => {
+    if (isServiceMode) {
+      return ['conversations']
+    }
+
+    return DATA_TYPES.filter((item) => item !== 'conversations')
+  }, [isServiceMode])
 
   const selectedGuide = DATA_TYPE_GUIDE[dataType]
   const channelFilterKey = useMemo(() => {
@@ -166,6 +173,11 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   useEffect(() => {
     if (isServiceMode && dataType !== 'conversations') {
       setDataType('conversations')
+      return
+    }
+
+    if (!isServiceMode && dataType === 'conversations') {
+      setDataType('billing_logs')
       return
     }
 
@@ -621,12 +633,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-700">데이터 유형</span>
               <select
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className="w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900"
                 value={dataType}
                 onChange={(e) => setDataType(e.target.value as DataType)}
                 disabled={isServiceMode}
               >
-                {DATA_TYPES.map((item) => (
+                {selectableDataTypes.map((item) => (
                   <option key={item} value={item}>
                     {DATA_TYPE_GUIDE[item].label}
                   </option>
@@ -846,7 +858,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                     <label key={filter.key} className="block">
                       <span className="mb-1 block text-xs text-slate-600">{filter.label}</span>
                       <select
-                        className="w-full rounded-md border px-2 py-1 text-sm"
+                        className="w-full rounded-md border bg-white px-2 py-1 text-sm text-slate-900"
                         value={asStringValue(filterInputs[filter.key])}
                         onChange={(e) =>
                           setFilterInputs((prev) => ({

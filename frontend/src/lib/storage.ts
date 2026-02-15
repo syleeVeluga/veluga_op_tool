@@ -171,7 +171,7 @@ export function getDefaultQueryUiSettings(): QueryUiSettings {
   before.setDate(before.getDate() - 7)
 
   return {
-    dataType: 'api_usage_logs',
+    dataType: 'billing_logs',
     startAt: toDatetimeLocalValue(before),
     endAt: toDatetimeLocalValue(now),
     pageSize: 100,
