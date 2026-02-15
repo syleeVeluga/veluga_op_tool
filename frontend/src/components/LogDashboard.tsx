@@ -4,9 +4,11 @@ import {
   type CustomerChannelItem,
   type CustomerSearchItem,
   type DataType,
+  exportDataFile,
   fetchSchema,
   fetchCustomerChannels,
   postDataQuery,
+  type QueryRequestPayload,
   searchCustomers,
   type DataTypeSchema,
 } from '../lib/api'
@@ -16,10 +18,7 @@ import {
     asRangeValue, 
     toIsoString, 
     buildFilters, 
-    buildCsvContent, 
-    projectRowsByColumns, 
-    triggerFileDownload,
-    toExportTimestamp
+    triggerBlobDownload,
 } from '../lib/utils'
 import { 
     loadStoredFilterState, 
@@ -84,7 +83,9 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [queryLoading, setQueryLoading] = useState(false)
   const [queryError, setQueryError] = useState<string | null>(null)
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
+  const [exportLoading, setExportLoading] = useState(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
+  const [jsonGzipEnabled, setJsonGzipEnabled] = useState(false)
   const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
 
   const isServiceMode = mode === 'service'
@@ -233,7 +234,36 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   }, [customerId, dataType, filterInputs, schema])
 
 
-  const onExportClick = (format: 'csv' | 'json') => {
+  const buildCurrentQueryPayload = (
+    normalizedCustomerId: string,
+    overrideFilterInputs?: FilterInputState,
+  ): QueryRequestPayload => {
+    const requestStart = toIsoString(startAt)
+    const requestEnd = toIsoString(endAt)
+
+    return {
+      dataType,
+      customerId: normalizedCustomerId,
+      dateRange: {
+        start: requestStart,
+        end: requestEnd,
+      },
+      filters: buildFilters(schema, overrideFilterInputs ?? filterInputs),
+      columns: selectedColumns,
+      pageSize,
+      includeTotal,
+      sortOrder,
+      ...(isServiceMode
+        ? {
+            includeSessionMessages: true,
+            reportMode: 'customer' as const,
+            matchWindowSec: 60,
+          }
+        : {}),
+    }
+  }
+
+  const onExportClick = async (format: 'csv' | 'json') => {
     const formatLabel = format.toUpperCase()
 
     if (rows.length === 0) {
@@ -246,22 +276,46 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
       return
     }
 
-    const timestamp = toExportTimestamp(new Date())
-    const baseName = `user-log-${dataType}-${timestamp}`
+    let normalizedCustomerId = customerId.trim()
+
+    if (!normalizedCustomerId) {
+      try {
+        normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '사용자명 기반 ID 확인에 실패했습니다.'
+        setExportNotice(message)
+        setCustomerError(message)
+        return
+      }
+    }
+
+    if (!normalizedCustomerId) {
+      const message = 'Customer ID를 입력해 주세요.'
+      setExportNotice(message)
+      setCustomerError(message)
+      return
+    }
+
+    setExportLoading(true)
+    setExportNotice(null)
 
     try {
-      if (format === 'csv') {
-        const csv = buildCsvContent(rows, resultColumns)
-        triggerFileDownload(csv, `${baseName}.csv`, 'text/csv;charset=utf-8', true)
-      } else {
-        const projectedRows = projectRowsByColumns(rows, resultColumns)
-        const json = JSON.stringify(projectedRows, null, 2)
-        triggerFileDownload(json, `${baseName}.json`, 'application/json;charset=utf-8')
-      }
+      const payload = buildCurrentQueryPayload(normalizedCustomerId)
+      const file = await exportDataFile(payload, format, {
+        gzip: format === 'json' ? jsonGzipEnabled : false,
+      })
+      triggerBlobDownload(file.blob, file.fileName)
 
-      setExportNotice(`${formatLabel} 파일 다운로드를 시작했습니다.`)
-    } catch {
-      setExportNotice(`${formatLabel} 내보내기에 실패했습니다. 다시 시도해 주세요.`)
+      setExportNotice(
+        format === 'json' && jsonGzipEnabled
+          ? `${formatLabel}(gzip) 파일 다운로드를 시작했습니다.`
+          : `${formatLabel} 파일 다운로드를 시작했습니다.`,
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `${formatLabel} 내보내기에 실패했습니다. 다시 시도해 주세요.`
+      setExportNotice(message)
+    } finally {
+      setExportLoading(false)
     }
   }
 
@@ -392,26 +446,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     setExportNotice(null)
 
     try {
-      const result = await postDataQuery({
-        dataType,
-        customerId: normalizedCustomerId,
-        dateRange: {
-          start: requestStart,
-          end: requestEnd,
-        },
-        filters: buildFilters(schema, overrideFilterInputs ?? filterInputs),
-        columns: selectedColumns,
-        pageSize,
-        includeTotal,
-        sortOrder,
-        ...(isServiceMode
-          ? {
-              includeSessionMessages: true,
-              reportMode: 'customer' as const,
-              matchWindowSec: 60,
-            }
-          : {}),
-      })
+      const result = await postDataQuery(buildCurrentQueryPayload(normalizedCustomerId, overrideFilterInputs))
 
       setRows(result.rows)
       setTotal(result.total)
@@ -791,6 +826,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
             >
               {queryLoading ? '로그 조회 중...' : '로그 조회'}
             </button>
+
           </form>
         </section>
 
@@ -801,19 +837,32 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               <button
                 type="button"
                 className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={rows.length === 0 || queryLoading}
-                onClick={() => onExportClick('csv')}
+                disabled={rows.length === 0 || queryLoading || exportLoading}
+                onClick={() => {
+                  void onExportClick('csv')
+                }}
               >
-                CSV 다운로드
+                {exportLoading ? '내보내는 중...' : 'CSV 다운로드'}
               </button>
               <button
                 type="button"
                 className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={rows.length === 0 || queryLoading}
-                onClick={() => onExportClick('json')}
+                disabled={rows.length === 0 || queryLoading || exportLoading}
+                onClick={() => {
+                  void onExportClick('json')
+                }}
               >
-                JSON 다운로드
+                {jsonGzipEnabled ? 'JSON 다운로드(.gz)' : 'JSON 다운로드'}
               </button>
+              <label className="flex items-center gap-1 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={jsonGzipEnabled}
+                  onChange={(event) => setJsonGzipEnabled(event.target.checked)}
+                  disabled={exportLoading}
+                />
+                JSON gzip
+              </label>
               <div className="text-xs text-slate-600">
                 rows: {rows.length}
                 {typeof total === 'number' ? ` / total: ${total}` : ''}

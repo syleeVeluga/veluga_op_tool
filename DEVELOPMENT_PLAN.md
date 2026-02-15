@@ -198,7 +198,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - MongoDB Cursor/보고서 row → HTTP Response 스트리밍
   - 파일명 자동생성: `{dataType}-{timestamp}.csv`
   - Content-Type: `text/csv; charset=utf-8`, Content-Disposition: attachment
-- [ ] 동시 Export 세마포어 (MAX_CONCURRENT_EXPORTS)
+- [x] 동시 Export 세마포어 (MAX_CONCURRENT_EXPORTS)
 - [x] 라우트 연결: `backend/src/routes/data.ts` (`POST /api/data/export-csv`)
 - [x] 원칙 준수: Production DB Read-Only (insert/update/delete/index 작업 없음)
 
@@ -206,8 +206,8 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] `backend/src/services/exportStreaming.ts` 기반 JSON 스트리밍 구현
   - MongoDB Cursor/보고서 row → JSON Array 스트리밍
   - Content-Type: `application/json; charset=utf-8`
-- [ ] 선택적 gzip
-- [ ] 동시 Export 세마포어 공유
+- [x] 선택적 gzip (`POST /api/data/export-json?gzip=1`)
+- [x] 동시 Export 세마포어 공유
 - [x] 라우트 연결: `backend/src/routes/data.ts` (`POST /api/data/export-json`)
 - [x] 원칙 준수: Production DB Read-Only (insert/update/delete/index 작업 없음)
 

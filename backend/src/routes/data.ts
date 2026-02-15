@@ -33,6 +33,7 @@ import {
 } from "../services/dataTypeSummary";
 import { buildConversationCustomerReport } from "../services/conversationCustomerReport";
 import {
+  runWithExportSemaphore,
   streamCsvExport,
   streamCsvExportFromRows,
   streamJsonExport,
@@ -40,6 +41,15 @@ import {
 } from "../services/exportStreaming";
 
 const dataRouter = Router();
+
+function parseBooleanFlag(raw: unknown): boolean {
+  if (typeof raw !== "string") {
+    return false;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
 
 dataRouter.get("/schema/:dataType", (req, res) => {
   const { dataType } = req.params;
@@ -306,21 +316,23 @@ dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) 
   const request = res.locals.queryRequest as QueryRequest;
 
   try {
-    if (
-      request.dataType === "conversations" &&
-      request.includeSessionMessages === true &&
-      request.reportMode === "customer"
-    ) {
-      const report = await buildConversationCustomerReport(request);
-      await streamCsvExportFromRows(
-        request,
-        report.rows.map((row) => ({ ...row })),
-        res
-      );
-      return;
-    }
+    await runWithExportSemaphore(async () => {
+      if (
+        request.dataType === "conversations" &&
+        request.includeSessionMessages === true &&
+        request.reportMode === "customer"
+      ) {
+        const report = await buildConversationCustomerReport(request);
+        await streamCsvExportFromRows(
+          request,
+          report.rows.map((row) => ({ ...row })),
+          res
+        );
+        return;
+      }
 
-    await streamCsvExport(request, res);
+      await streamCsvExport(request, res);
+    });
   } catch (error) {
     if (!res.headersSent) {
       res.status(500).json({
@@ -335,25 +347,29 @@ dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) 
   }
 });
 
-dataRouter.post("/data/export-json", validateDataQueryRequest, async (_req, res) => {
+dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) => {
   const request = res.locals.queryRequest as QueryRequest;
+  const gzip = parseBooleanFlag(req.query.gzip);
 
   try {
-    if (
-      request.dataType === "conversations" &&
-      request.includeSessionMessages === true &&
-      request.reportMode === "customer"
-    ) {
-      const report = await buildConversationCustomerReport(request);
-      await streamJsonExportFromRows(
-        request,
-        report.rows.map((row) => ({ ...row })),
-        res
-      );
-      return;
-    }
+    await runWithExportSemaphore(async () => {
+      if (
+        request.dataType === "conversations" &&
+        request.includeSessionMessages === true &&
+        request.reportMode === "customer"
+      ) {
+        const report = await buildConversationCustomerReport(request);
+        await streamJsonExportFromRows(
+          request,
+          report.rows.map((row) => ({ ...row })),
+          res,
+          { gzip }
+        );
+        return;
+      }
 
-    await streamJsonExport(request, res);
+      await streamJsonExport(request, res, { gzip });
+    });
   } catch (error) {
     if (!res.headersSent) {
       res.status(500).json({

@@ -117,3 +117,15 @@ export function triggerFileDownload(content: string, fileName: string, mimeType:
   link.remove()
   window.URL.revokeObjectURL(url)
 }
+
+export function triggerBlobDownload(blob: Blob, fileName: string): void {
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  window.document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
