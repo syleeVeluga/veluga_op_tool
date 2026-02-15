@@ -6,6 +6,7 @@ import {
 } from "./config/database";
 import { ensureDnsServers } from "./config/dns";
 import { env } from "./config/env";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { adminUsersRouter } from "./routes/adminUsers";
 import { authRouter } from "./routes/auth";
 import { dataRouter } from "./routes/data";
@@ -49,6 +50,9 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/admin", adminUsersRouter);
   app.use("/api", dataRouter);
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }
