@@ -37,12 +37,16 @@
 - 조회/집계 API
   - `POST /api/data/query`
   - `POST /api/data/query-batch/conversations`
+  - `POST /api/data/query-partner/conversations`
   - `POST /api/data/summary/period`
   - `POST /api/data/summary/by-data-type`
   - `GET /api/customers/search?q=`
 - 파트너 기관 오프라인 추출 스크립트
   - `npm run export:partner:conversations -- --partnerId <ID> --start <ISO> --end <ISO>`
   - 월 단위 윈도우 + 고객/채널 청크 + 재시도/요약 파일 출력 지원
+- 파트너 기관 API 표준 워크플로우(Track 2)
+  - `partnerId`, `dateRange`, `chunkOptions` 기반 요청
+  - 응답 메타: `processedChunks`, `failedChunks`, `elapsedMs`, 월 단위 실행계획(`executionPlan`)
 - 서버 스트리밍 Export API
   - `POST /api/data/export-csv`
   - `POST /api/data/export-json`
@@ -180,6 +184,7 @@ npm run dev
 - `GET /api/customers/search?q=`: 이메일/이름/ID로 사용자 검색
 - `GET /api/customers/by-partner?partnerId=`: partner 기준 사용자 ID 묶음 해석
 - `POST /api/data/query`: `customerId`(단일) 또는 `customerIds`(배열) 중 하나로 조회
+- `POST /api/data/query-partner/conversations`: 파트너 단위 멤버 확장 + 월 단위 실행계획/실행메타 포함 조회
 
 ### Playwright로 프론트 확인
 

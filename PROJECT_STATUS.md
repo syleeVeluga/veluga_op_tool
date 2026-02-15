@@ -44,6 +44,10 @@
 - 파트너 Track 1 오프라인 추출 스크립트 구현 완료
   - 실행: `npm run export:partner:conversations -- --partnerId <ID> --start <ISO> --end <ISO>`
   - 기능: 월 단위 윈도우 분할, 고객/채널 청크, 재시도, NDJSON + summary 파일 출력
+- 파트너 Track 2 API 표준 워크플로우 구현 완료
+  - 엔드포인트: `POST /api/data/query-partner/conversations`
+  - 요청 표준: `partnerId`, `dateRange`, `chunkOptions`
+  - 응답 메타: `processedChunks`, `failedChunks`, `elapsedMs`, `executionPlan(월 단위 윈도우)`
 
 - 서비스 로그 전용 메뉴/페이지 추가 (`/service-logs`)
 - `conversations` 고객 보고 모드 요청값 반영

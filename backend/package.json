@@ -18,6 +18,7 @@
     "test:smoke:data-type-summary": "tsx scripts/smoke-data-type-summary-endpoint.ts",
     "test:smoke:auth-inactive-login": "tsx scripts/smoke-auth-inactive-login.ts",
     "test:smoke:conversation-session-mapping": "tsx scripts/smoke-conversation-session-mapping.ts",
+    "test:smoke:partner-workflow": "tsx scripts/smoke-partner-conversation-workflow.ts",
     "export:partner:conversations": "tsx scripts/export-partner-conversations.ts"
   },
   "dependencies": {

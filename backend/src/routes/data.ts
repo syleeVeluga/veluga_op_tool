@@ -6,6 +6,7 @@ import { schemaRegistry } from "../config/schema";
 import { env } from "../config/env";
 import { validateDataQueryRequest } from "../middleware/validators";
 import { validateConversationBatchRequest } from "../middleware/validators";
+import { validatePartnerConversationWorkflowRequest } from "../middleware/validators";
 import { validatePeriodSummaryRequest } from "../middleware/validators";
 import { validateDataTypeSummaryRequest } from "../middleware/validators";
 import {
@@ -17,6 +18,10 @@ import {
   queryConversationsInBatches,
   type ConversationBatchRequest,
 } from "../services/conversationBatchQuery";
+import {
+  runPartnerConversationWorkflow,
+  type PartnerConversationWorkflowRequest,
+} from "../services/partnerConversationWorkflow";
 import {
   resolveCustomersByPartnerId,
   searchCustomers,
@@ -166,6 +171,26 @@ dataRouter.post(
       res.status(500).json({
         error: "batch_query_failed",
         message: "Failed to execute batched conversations query",
+        detail: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+  }
+);
+
+dataRouter.post(
+  "/data/query-partner/conversations",
+  validatePartnerConversationWorkflowRequest,
+  async (_req, res) => {
+    const request = res.locals
+      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+
+    try {
+      const result = await runPartnerConversationWorkflow(request);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        error: "partner_workflow_failed",
+        message: "Failed to execute partner conversation workflow",
         detail: error instanceof Error ? error.message : "unknown error",
       });
     }
