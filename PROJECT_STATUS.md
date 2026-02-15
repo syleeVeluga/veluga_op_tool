@@ -13,7 +13,7 @@
 | 프론트 대시보드 | 🟢 운영 가능 | 사용자 로그 + 서비스 로그 + 관리자 페이지 |
 | 서비스 로그(Q/A 매핑) | 🟢 1차 완료 | 고객 보고 모드/세션 매핑/요약 지표 반영 |
 | 배포 파이프라인 | 🟢 운영 중 | Cloud Run 배포 스크립트 + GitHub Actions |
-| Export(서버 스트리밍) | 🟡 후속 과제 | 현재는 클라이언트 다운로드 중심 |
+| Export(서버 스트리밍) | 🟢 1차 완료 | `/api/data/export-csv`, `/api/data/export-json` 제공 |
 | 프리셋/히스토리 고도화 | 🟡 후속 과제 | 기본 실행 이력만 제공 |
 
 ---
@@ -29,9 +29,19 @@
   - 질문/최종답변/모델/크레딧/매핑출처(`matchSource`) 구성
   - `summary.unmatchedCount`, `summary.fallbackCount`, `summary.totalCreditUsed` 제공
 - 서비스 로그 결과 컬럼 순서 고정(고객 보고용)
+- 서비스 로그 결과 컬럼 조정
+  - `matchScore` 제외
+  - `like`(좋아요/나빠요) 표시 반영 (DB 기존 값 읽기)
 - 정렬 토글 UI 반영 (사용자 로그/서비스 로그 공통)
   - 오름차순 / 최신순
   - 로컬 저장소(`query settings`)에 정렬 상태 저장/복원
+- 필터 패널 채널 조회/선택 개선
+  - 채널 선택 라벨: `channel_id (channel_name)` 표시
+  - 채널 메타 조회 API: `GET /api/customers/channels?dataType=&customerId=`
+- Export 스트리밍 API 추가
+  - `POST /api/data/export-csv`
+  - `POST /api/data/export-json`
+  - 프로덕션 DB Read-Only 원칙 유지 (쓰기/스키마 변경 없음)
 
 ---
 
@@ -42,8 +52,10 @@
 - Schema: `GET /api/schema/:dataType`
 - Query: `POST /api/data/query`
 - Batch(대화): `POST /api/data/query-batch/conversations`
+- Export: `POST /api/data/export-csv`, `POST /api/data/export-json`
 - Summary: `POST /api/data/summary/period`, `POST /api/data/summary/by-data-type`
 - Customer Search: `GET /api/customers/search?q=`
+- Customer Channels: `GET /api/customers/channels?dataType=&customerId=`
 - Auth/Admin: 로그인/내정보/관리자 사용자 CRUD
 
 ### 프론트
@@ -57,11 +69,10 @@
 
 ## 4) 다음 우선순위 (Short Backlog)
 
-1. 서버 측 Export 스트리밍 API 정식화 (`/api/data/export-csv`, `/api/data/export-json`)
-2. 프리셋 CRUD + 재실행 UX
-3. 조회 히스토리 고도화(필터/결과 메타 재사용)
-4. 성능 가드레일 보강(대용량 기간/채널 조합)
-5. 운영 문서 자동화(릴리스 노트/변경 로그 연동)
+1. 프리셋 CRUD + 재실행 UX
+2. 조회 히스토리 고도화(필터/결과 메타 재사용)
+3. 성능 가드레일 보강(대용량 기간/채널 조합)
+4. 운영 문서 자동화(릴리스 노트/변경 로그 연동)
 
 ---
 

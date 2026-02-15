@@ -194,20 +194,22 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - [x] 응답 메타(`processedChunks`, `elapsedMs`, `hasMore`, `total?`)
 
 ### 3-5. CSV Export API — `POST /api/data/export-csv`
-- [ ] `backend/src/services/csvGenerator.ts`
-  - MongoDB Cursor → Transform Stream → fast-csv → HTTP Response
-  - 문자열 5000자 Truncate (설정 가능)
-  - Nested 데이터 플랫트닝 (`messages[0].content` → `messages_0_content`)
-  - 파일명 자동생성: `{dataType}_{customerId}_{date}.csv`
+- [x] `backend/src/services/exportStreaming.ts` 기반 CSV 스트리밍 구현
+  - MongoDB Cursor/보고서 row → HTTP Response 스트리밍
+  - 파일명 자동생성: `{dataType}-{timestamp}.csv`
+  - Content-Type: `text/csv; charset=utf-8`, Content-Disposition: attachment
 - [ ] 동시 Export 세마포어 (MAX_CONCURRENT_EXPORTS)
-- [ ] Content-Type: text/csv, Content-Disposition: attachment
+- [x] 라우트 연결: `backend/src/routes/data.ts` (`POST /api/data/export-csv`)
+- [x] 원칙 준수: Production DB Read-Only (insert/update/delete/index 작업 없음)
 
 ### 3-6. JSON Export API — `POST /api/data/export-json`
-- [ ] `backend/src/services/jsonExporter.ts`
-  - MongoDB Cursor → JSON Array 스트리밍 → 선택적 gzip
-  - Truncate 없이 원문
-  - Content-Type: application/json 또는 application/gzip
+- [x] `backend/src/services/exportStreaming.ts` 기반 JSON 스트리밍 구현
+  - MongoDB Cursor/보고서 row → JSON Array 스트리밍
+  - Content-Type: `application/json; charset=utf-8`
+- [ ] 선택적 gzip
 - [ ] 동시 Export 세마포어 공유
+- [x] 라우트 연결: `backend/src/routes/data.ts` (`POST /api/data/export-json`)
+- [x] 원칙 준수: Production DB Read-Only (insert/update/delete/index 작업 없음)
 
 ### 3-7. 인증/인가
 - [x] `backend/src/routes/auth.ts`
