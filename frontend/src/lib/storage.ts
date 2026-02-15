@@ -166,6 +166,7 @@ export function getDefaultQueryUiSettings(): QueryUiSettings {
     endAt: toDatetimeLocalValue(now),
     pageSize: 100,
     includeTotal: true,
+    sortOrder: 'asc',
   }
 }
 
@@ -205,12 +206,20 @@ export function loadStoredQueryUiSettings(): QueryUiSettings {
         ? includeTotalCandidate
         : defaults.includeTotal
 
+    const sortOrderCandidate =
+      parsed.sortOrder ?? parsed.serviceSortOrder
+    const safeSortOrder =
+      sortOrderCandidate === 'asc' || sortOrderCandidate === 'desc'
+        ? sortOrderCandidate
+        : defaults.sortOrder
+
     return {
       dataType: safeDataType,
       startAt: startCandidate,
       endAt: endCandidate,
       pageSize: safePageSize,
       includeTotal: safeIncludeTotal,
+      sortOrder: safeSortOrder,
     }
   } catch {
     return defaults

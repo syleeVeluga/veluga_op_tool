@@ -32,6 +32,7 @@ export interface QueryUiSettings {
   endAt: string
   pageSize: number
   includeTotal: boolean
+  sortOrder: 'asc' | 'desc'
 }
 
 export interface StoredFilterState {

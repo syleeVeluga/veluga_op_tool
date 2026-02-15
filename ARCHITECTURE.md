@@ -1,7 +1,7 @@
 # 아키텍처 참조 — 고객 로그 데이터 추출 대시보드
 
 > Copilot 및 AI 보조 개발 시 기술 결정, 패턴, 규칙 참조용
-> 최종 갱신: 2026-02-14
+> 최종 갱신: 2026-02-15
 
 ---
 
@@ -26,9 +26,9 @@
 
 | 계층 | 기술 | 버전 | 비고 |
 |------|------|------|------|
-| Frontend | React + TypeScript | React 18+ | SPA, Vite 빌드 |
-| UI | Tailwind CSS + shadcn/ui | Tailwind 3+ | 컴포넌트 라이브러리 |
-| 상태관리 | TanStack Query (React Query) | v5 | 서버 상태 캐싱 |
+| Frontend | React + TypeScript | React 19+ | SPA, Vite 빌드 |
+| UI | Tailwind CSS | Tailwind 3+ | 유틸리티 기반 스타일링 |
+| 상태관리 | React Hooks + Context | - | 로컬 상태 + 인증 세션 관리 |
 | 라우팅 | React Router | v6 | SPA 라우팅 |
 | Backend | Node.js + Express + TypeScript | Node 22 | CommonJS, strict |
 | DB Driver | MongoDB Native Driver | 6.x | Read-Only, secondaryPreferred |
@@ -62,7 +62,7 @@
 - **페이지**: `pages/` — 라우트 대응, 컴포넌트 조합
 - **훅**: `hooks/` — API 연동, 상태 관리
 - **API 클라이언트**: `lib/api.ts` — base URL, JWT 자동 첨부, 에러 인터셉터
-- TanStack Query — 모든 서버 데이터는 useQuery/useMutation으로 관리
+- 조회/관리 페이지는 페이지 단위 상태와 API 함수 호출로 구성
 
 ### 3.4 네이밍 컨벤션
 - 파일명: camelCase (`queryBuilder.ts`, `useDataQuery.ts`)

@@ -2,7 +2,7 @@
 
 고객 로그 데이터 추출 대시보드 프로젝트입니다.
 
-- Frontend: React SPA (계획)
+- Frontend: React SPA (운영)
 - Backend: Node.js + Express + TypeScript
 - Infra: Docker + Google Cloud Run
 - DB: MongoDB Atlas (Read-Only 접근 전제)
@@ -20,7 +20,7 @@
 
 상세 요구사항은 [PRD_v1_2_1_CloudRun.md](PRD_v1_2_1_CloudRun.md)를 참고하세요.
 
-## 2) 현재 구현 상태 (2026-02-14 기준)
+## 2) 현재 구현 상태 (2026-02-15 기준)
 
 구현 완료:
 
@@ -55,14 +55,16 @@
   - 결과 컬럼 선택 및 localStorage 상태 저장
   - CSV/JSON 클라이언트 다운로드(선택 컬럼 기준)
   - 운영자 가이드: dataType별 식별자 키 안내
+  - 서비스 로그 전용 페이지(`/service-logs`) + 고객 보고 모드 조회
+  - 로그 기본 정렬 토글(오름차순/최신순) + 정렬 상태 저장
   - partner ID 기반 사용자 확장 조회(`users.members`)
   - 고객 검색 상단 배치 + 채널 조회/선택 기반 2단계 조회 UX
   - `conversations`에서 채널 선택 시 대화 로그 자동 조회
 
 미구현(다음 단계):
 
-- 인증/인가(JWT, RBAC)
 - 서버 측 CSV/JSON Export 엔진(API 기반 대용량 스트리밍)
+- 프리셋 저장/불러오기 고도화
 
 진행상황 문서는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 아키텍처는 [ARCHITECTURE.md](ARCHITECTURE.md)에서 확인할 수 있습니다.
 
@@ -279,11 +281,11 @@ docker build -t log-csv-api:local .
 
 ## 8) 다음 우선순위
 
-1. dataType 스키마의 실데이터 기준 필드/필터 확정 (현재는 스켈레톤)
-2. `queryBuilder.ts` 구현 (식별자 키 매핑 검증 포함)
-3. `/api/data/query`, `/api/data/export-csv`, `/api/data/export-json` 구현
-4. 인증/권한(`auth.ts`, `authz.ts`) 구현
-5. 프론트엔드(Vite + React + Tailwind + shadcn/ui) 초기화
+1. 서버 스트리밍 Export API 고도화 (`/api/data/export-csv`, `/api/data/export-json`)
+2. 프리셋 CRUD 및 재실행 UX 추가
+3. 조회 히스토리 고도화(필터/응답 메타 재사용)
+4. 대용량 기간/채널 조합 성능 가드레일 보강
+5. 문서-릴리스 연동(변경 시 `PROJECT_STATUS.md` 요약 자동 갱신 규칙)
 
 ### 무영향 스키마 실사 실행
 

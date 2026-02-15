@@ -2,7 +2,8 @@
 
 > 본 문서는 PRD v1.2.1 (PRD_v1_2_1_CloudRun.md) 기반의 단계별 구현 계획입니다.
 > Copilot 및 AI 보조 개발 시 컨텍스트 참조용으로 작성되었습니다.
-> 최종 갱신: 2026-02-14
+> 최종 갱신: 2026-02-15
+> 운영 기준의 최신 완료 상태는 `PROJECT_STATUS.md`를 우선하며, 본 문서의 일부 초기 체크리스트는 이력 보존용입니다.
 
 ---
 
@@ -12,7 +13,7 @@
 React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ```
 
-- **Frontend**: React + TypeScript + Tailwind CSS + shadcn/ui + TanStack Query
+- **Frontend**: React + TypeScript + Tailwind CSS + React Router
 - **Backend**: Node.js + Express + TypeScript + MongoDB Driver
 - **인증**: 이메일 기반 JWT, RBAC + 메뉴 권한
 - **배포**: Frontend → GitHub Pages / Backend → Google Cloud Run
@@ -253,7 +254,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ### 4-1. 레이아웃
 - [x] `frontend/src/layouts/DashboardLayout.tsx` — 헤더+사이드바+메인 구조 적용
 - [x] `frontend/src/components/Sidebar.tsx` — 권한 기반 동적 메뉴 구현
-- [x] 라우트 구성: `/` (dashboard), `/partner-logs`, `/admin/users`, `/login`
+- [x] 라우트 구성: `/` (user logs), `/service-logs`, `/admin/users`, `/login`
 
 ### 4-2. 인증 플로우
 - [x] `frontend/src/pages/LoginPage.tsx` — 이메일+비밀번호 로그인 폼

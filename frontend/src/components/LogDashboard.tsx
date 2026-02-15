@@ -65,6 +65,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [endAt, setEndAt] = useState(initialQuerySettings.endAt)
   const [pageSize, setPageSize] = useState(initialQuerySettings.pageSize)
   const [includeTotal, setIncludeTotal] = useState(initialQuerySettings.includeTotal)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(initialQuerySettings.sortOrder)
 
   const [schema, setSchema] = useState<DataTypeSchema | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -203,9 +204,10 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
         startAt,
         endAt,
         pageSize,
-        includeTotal
+        includeTotal,
+        sortOrder,
     })
-  }, [dataType, startAt, endAt, pageSize, includeTotal])
+  }, [dataType, startAt, endAt, pageSize, includeTotal, sortOrder])
 
   // Save Column settings
   useEffect(() => {
@@ -413,11 +415,11 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
         columns: selectedColumns,
         pageSize,
         includeTotal,
+        sortOrder,
         ...(isServiceMode
           ? {
               includeSessionMessages: true,
               reportMode: 'customer' as const,
-              sortOrder: 'asc' as const,
               matchWindowSec: 60,
             }
           : {}),
@@ -676,6 +678,26 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                 />
                 Include Total
               </label>
+            </div>
+
+            <div className="rounded-md border bg-slate-50 p-3">
+              <div className="mb-2 text-xs font-semibold text-slate-700">기본 정렬</div>
+              <div className="inline-flex rounded-md border border-slate-300 bg-white p-1">
+                <button
+                  type="button"
+                  className={`rounded px-3 py-1 text-xs font-medium ${sortOrder === 'asc' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+                  onClick={() => setSortOrder('asc')}
+                >
+                  오름차순
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-3 py-1 text-xs font-medium ${sortOrder === 'desc' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+                  onClick={() => setSortOrder('desc')}
+                >
+                  최신순
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3 rounded-md border bg-slate-50 p-3">
