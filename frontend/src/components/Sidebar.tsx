@@ -1,10 +1,15 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, MessageSquareText, UserCog, LogOut } from 'lucide-react'
+import { LayoutDashboard, MessageSquareText, Building2, UserCog, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Sidebar() {
   const { authUser, logout } = useAuth()
   const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin'
+  const hasPartnerMenuAccess =
+    authUser?.allowedMenus?.includes('partner-logs') ?? isAdmin
+  const hasPartnerDataAccess =
+    authUser?.allowedDataTypes?.includes('conversations') ?? isAdmin
+  const canAccessPartnerLogs = hasPartnerMenuAccess && hasPartnerDataAccess
 
   return (
     <div className="flex h-screen w-64 flex-col border-r bg-slate-900 text-white flex-shrink-0">
@@ -38,6 +43,20 @@ export function Sidebar() {
           <MessageSquareText size={18} />
           서비스 로그
         </NavLink>
+
+        {canAccessPartnerLogs && (
+          <NavLink
+            to="/partner-logs"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`
+            }
+          >
+            <Building2 size={18} />
+            파트너 로그
+          </NavLink>
+        )}
 
         {isAdmin && (
           <>

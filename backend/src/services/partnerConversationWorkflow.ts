@@ -36,6 +36,16 @@ interface WorkflowTask {
   request: QueryRequest;
 }
 
+class ChunkRetryError extends Error {
+  attempts: number;
+
+  constructor(message: string, attempts: number) {
+    super(message);
+    this.name = "ChunkRetryError";
+    this.attempts = attempts;
+  }
+}
+
 interface FailedChunkMeta {
   chunkId: string;
   attempts: number;
@@ -65,6 +75,8 @@ export interface PartnerConversationWorkflowResponse {
       customerBatchSize: number;
       channelChunkSize: number;
       maxWorkers: number;
+      pauseMs: number;
+      maxRetries: number;
       estimatedTasks: number;
     };
   };
@@ -161,11 +173,22 @@ async function runTaskWithRetry(task: WorkflowTask, maxRetries: number): Promise
     }
   }
 
-  throw new Error(lastError instanceof Error ? lastError.message : "task_failed");
+  throw new ChunkRetryError(
+    lastError instanceof Error ? lastError.message : "task_failed",
+    attempt
+  );
 }
 
 function buildRowKey(row: ConversationCustomerRow): string {
   return [row.occurredAt, row.channel, row.sessionId, row.customerId, row.questionText].join("::");
+}
+
+function toWindowEndIso(window: DateWindow): string {
+  if (window.isLast) {
+    return window.end.toISOString();
+  }
+
+  return new Date(window.end.getTime() - 1).toISOString();
 }
 
 export async function runPartnerConversationWorkflow(
@@ -222,7 +245,7 @@ export async function runPartnerConversationWorkflow(
                 customerId,
                 dateRange: {
                   start: window.start.toISOString(),
-                  end: window.end.toISOString(),
+                  end: toWindowEndIso(window),
                 },
                 filters: request.filters,
                 includeSessionMessages: true,
@@ -245,7 +268,7 @@ export async function runPartnerConversationWorkflow(
                 customerId,
                 dateRange: {
                   start: window.start.toISOString(),
-                  end: window.isLast ? window.end.toISOString() : new Date(window.end.getTime() - 1).toISOString(),
+                  end: toWindowEndIso(window),
                 },
                 filters: {
                   ...(request.filters ?? {}),
@@ -310,7 +333,7 @@ export async function runPartnerConversationWorkflow(
       } catch (error) {
         failedChunks.push({
           chunkId: task.chunkId,
-          attempts: chunkOptions.maxRetries + 1,
+          attempts: error instanceof ChunkRetryError ? error.attempts : chunkOptions.maxRetries + 1,
           reason: error instanceof Error ? error.message : "task_failed",
         });
       }
@@ -352,6 +375,8 @@ export async function runPartnerConversationWorkflow(
         customerBatchSize: chunkOptions.customerBatchSize,
         channelChunkSize: chunkOptions.channelChunkSize,
         maxWorkers: chunkOptions.maxWorkers,
+        pauseMs: chunkOptions.pauseMs,
+        maxRetries: chunkOptions.maxRetries,
         estimatedTasks: tasks.length,
       },
     },

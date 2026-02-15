@@ -41,6 +41,16 @@ interface ExportTask {
   request: QueryRequest;
 }
 
+class ChunkRetryError extends Error {
+  attempts: number;
+
+  constructor(message: string, attempts: number) {
+    super(message);
+    this.name = "ChunkRetryError";
+    this.attempts = attempts;
+  }
+}
+
 interface SummaryReport {
   requestedAt: string;
   partnerId: string;
@@ -151,6 +161,14 @@ function splitByMonth(start: Date, end: Date): DateWindow[] {
   return windows;
 }
 
+function toWindowEndIso(window: DateWindow, isLastWindow: boolean): string {
+  if (isLastWindow) {
+    return window.end.toISOString();
+  }
+
+  return new Date(window.end.getTime() - 1).toISOString();
+}
+
 function buildRowId(row: ConversationCustomerRow): string {
   return [row.occurredAt, row.channel, row.sessionId, row.customerId].join("::");
 }
@@ -212,7 +230,10 @@ async function runChunkWithRetry(
     }
   }
 
-  throw new Error(lastError instanceof Error ? lastError.message : "Unknown chunk failure");
+  throw new ChunkRetryError(
+    lastError instanceof Error ? lastError.message : "Unknown chunk failure",
+    attempt,
+  );
 }
 
 async function run(): Promise<void> {
@@ -257,6 +278,7 @@ async function run(): Promise<void> {
 
   for (let windowIndex = 0; windowIndex < windows.length; windowIndex += 1) {
     const window = windows[windowIndex];
+    const windowEnd = toWindowEndIso(window, windowIndex === windows.length - 1);
 
     for (let batchIndex = 0; batchIndex < customerBatches.length; batchIndex += 1) {
       const customerBatch = customerBatches[batchIndex];
@@ -278,7 +300,7 @@ async function run(): Promise<void> {
                 customerId,
                 dateRange: {
                   start: window.start.toISOString(),
-                  end: window.end.toISOString(),
+                  end: windowEnd,
                 },
                 includeSessionMessages: true,
                 reportMode: "customer",
@@ -300,7 +322,7 @@ async function run(): Promise<void> {
                 customerId,
                 dateRange: {
                   start: window.start.toISOString(),
-                  end: window.end.toISOString(),
+                  end: windowEnd,
                 },
                 filters: { channel },
                 includeSessionMessages: true,
@@ -358,7 +380,7 @@ async function run(): Promise<void> {
         failedChunks.push({
           chunkId: task.chunkId,
           reason: error instanceof Error ? error.message : "unknown_chunk_error",
-          attempts: options.maxRetries + 1,
+          attempts: error instanceof ChunkRetryError ? error.attempts : options.maxRetries + 1,
         });
       }
 

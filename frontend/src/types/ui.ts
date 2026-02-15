@@ -8,6 +8,8 @@ export interface AuthSession {
     name: string
     role: UserRole
     mustChangePassword: boolean
+    allowedMenus?: string[]
+    allowedDataTypes?: DataType[]
   }
 }
 

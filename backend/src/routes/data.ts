@@ -47,6 +47,26 @@ import {
 
 const dataRouter = Router();
 
+const PARTNER_CONVERSATION_EXPORT_COLUMNS = [
+  "occurredAt",
+  "answerAt",
+  "responseLatencyMs",
+  "channel",
+  "sessionId",
+  "customerId",
+  "questionCreatorType",
+  "questionCreatorRaw",
+  "questionText",
+  "finalAnswerText",
+  "like",
+  "likeConfidence",
+  "finalAnswerModel",
+  "modelConfidence",
+  "creditUsed",
+  "sessionCreditTotal",
+  "matchSource",
+];
+
 function parseBooleanFlag(raw: unknown): boolean {
   if (typeof raw !== "string") {
     return false;
@@ -408,5 +428,91 @@ dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) 
     res.end();
   }
 });
+
+dataRouter.post(
+  "/data/query-partner/conversations/export-csv",
+  validatePartnerConversationWorkflowRequest,
+  async (_req, res) => {
+    const request = res.locals
+      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+
+    try {
+      await runWithExportSemaphore(async () => {
+        const result = await runPartnerConversationWorkflow(request);
+        const columns =
+          result.rows.length > 0
+            ? Object.keys(result.rows[0])
+            : PARTNER_CONVERSATION_EXPORT_COLUMNS;
+
+        await streamCsvExportFromRows(
+          {
+            dataType: "conversations",
+            customerId: `partner:${request.partnerId}`,
+            dateRange: request.dateRange,
+            columns,
+            pageSize: result.pageSize,
+          },
+          result.rows.map((row) => ({ ...row })),
+          res
+        );
+      });
+    } catch (error) {
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "export_failed",
+          message: "Failed to export partner conversations CSV",
+          detail: error instanceof Error ? error.message : "unknown error",
+        });
+        return;
+      }
+
+      res.end();
+    }
+  }
+);
+
+dataRouter.post(
+  "/data/query-partner/conversations/export-json",
+  validatePartnerConversationWorkflowRequest,
+  async (req, res) => {
+    const request = res.locals
+      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+    const gzip = parseBooleanFlag(req.query.gzip);
+
+    try {
+      await runWithExportSemaphore(async () => {
+        const result = await runPartnerConversationWorkflow(request);
+        const columns =
+          result.rows.length > 0
+            ? Object.keys(result.rows[0])
+            : PARTNER_CONVERSATION_EXPORT_COLUMNS;
+
+        await streamJsonExportFromRows(
+          {
+            dataType: "conversations",
+            customerId: `partner:${request.partnerId}`,
+            dateRange: request.dateRange,
+            columns,
+            pageSize: result.pageSize,
+          },
+          result.rows.map((row) => ({ ...row })),
+          res,
+          { gzip }
+        );
+      });
+    } catch (error) {
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "export_failed",
+          message: "Failed to export partner conversations JSON",
+          detail: error instanceof Error ? error.message : "unknown error",
+        });
+        return;
+      }
+
+      res.end();
+    }
+  }
+);
 
 export { dataRouter };

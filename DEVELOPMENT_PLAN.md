@@ -233,12 +233,12 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - 운영 파라미터를 환경변수/요청값으로 통제
 
 ##### C) 저부하 운영 가드레일 (필수)
-- [ ] 쿼리 기본 정책
+- [x] 쿼리 기본 정책
   - `readPreference=secondaryPreferred`
   - `maxTimeMS` 강제
   - 필요한 컬럼만 projection
   - 월 단위 기간 윈도우 고정(장기 기간 일괄 조회 금지)
-- [ ] 실행 정책
+- [x] 실행 정책
   - 동시 실행 수 제한(기본 1, 최대 2)
   - 청크 간 짧은 휴지시간 도입(과부하 완화)
   - 실패 청크 재시도(최대 횟수 제한) + 실패 목록 리포트
@@ -334,6 +334,10 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] 내부 보고용 추가 컬럼(`questionCreatorType`, `answerAt`, `responseLatencyMs`) 지원
 - [x] 장기 기간 요청 시 강제 윈도우 분할(월 단위) 및 실행 계획 반환
 - [x] 대량 추출 요청에 대해 `job-like` 실행 메타(`processedChunks`, `failedChunks`, `elapsedMs`) 제공
+- [x] 파트너 전용 다운로드 API 추가
+  - [x] `POST /api/data/query-partner/conversations/export-csv`
+  - [x] `POST /api/data/query-partner/conversations/export-json`
+  - [x] `gzip=1` 옵션 지원(JSON)
 
 #### 기간별 요청 대응 (월말/분기/반기) 후속
 - [x] `POST /api/data/query`에 `includeTotal` 플래그 추가 및 `total` 반환
@@ -439,16 +443,17 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [x] `frontend/src/lib/storage.ts` — 로컬 스토리지 상태 저장/복원 로직 분리
 
 ### 4-5. 파트너 로그 메뉴/페이지 신설 (MVP)
-- [ ] `frontend/src/pages/PartnerLogPage.tsx` 신규
+- [x] `frontend/src/pages/PartnerLogPage.tsx` 신규
   - 파트너 ID 입력/선택, 기간 선택, 실행 버튼, 진행 메타 표시
-- [ ] `frontend/src/components/Sidebar.tsx` 메뉴 항목 추가
+  - CSV/JSON 다운로드 버튼 + JSON gzip 옵션
+- [x] `frontend/src/components/Sidebar.tsx` 메뉴 항목 추가
   - 메뉴명: `파트너 로그`
   - 권한 없는 사용자 비노출
-- [ ] `frontend/src/App.tsx` 라우트/가드 추가
+- [x] `frontend/src/App.tsx` 라우트/가드 추가
   - `/partner-logs` 접근 시 메뉴 권한 + 데이터 권한 동시 검사
-- [ ] `frontend/src/components/LogDashboard.tsx`와 역할 분리
+- [x] `frontend/src/components/LogDashboard.tsx`와 역할 분리
   - 일반 서비스 로그 흐름과 파트너 대량 추출 흐름 분리
-- [ ] UX 가드레일
+- [x] UX 가드레일
   - 장기 기간 요청 시 월 단위 자동 분할 안내
   - 기본 동시성/청크 정책 안내 문구 노출
 

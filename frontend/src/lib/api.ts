@@ -95,6 +95,48 @@ export interface PartnerCustomerResolveResponse {
   customers: CustomerSearchItem[]
 }
 
+export interface PartnerConversationWorkflowPayload {
+  partnerId: string
+  dateRange: {
+    start: string
+    end: string
+  }
+  chunkOptions?: {
+    customerBatchSize?: number
+    channelChunkSize?: number
+    maxWorkers?: number
+    pauseMs?: number
+    maxRetries?: number
+  }
+  includeTotal?: boolean
+  rowLimit?: number
+}
+
+export interface PartnerConversationWorkflowResponse {
+  rows: Array<Record<string, unknown>>
+  pageSize: number
+  hasMore: boolean
+  total?: number
+  meta: {
+    partnerId: string
+    memberCount: number
+    processedChunks: number
+    failedChunks: Array<{ chunkId: string; attempts: number; reason: string }>
+    elapsedMs: number
+    executionPlan: {
+      strategy: string
+      windowCount: number
+      windows: Array<{ start: string; end: string }>
+      customerBatchSize: number
+      channelChunkSize: number
+      maxWorkers: number
+      pauseMs: number
+      maxRetries: number
+      estimatedTasks: number
+    }
+  }
+}
+
 export type UserRole = 'super_admin' | 'admin' | 'user'
 
 export interface AuthUser {
@@ -103,6 +145,8 @@ export interface AuthUser {
   name: string
   role: UserRole
   mustChangePassword: boolean
+  allowedMenus?: string[]
+  allowedDataTypes?: DataType[]
 }
 
 export interface DashboardUser {
@@ -114,6 +158,8 @@ export interface DashboardUser {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  allowedMenus?: string[]
+  allowedDataTypes?: DataType[]
 }
 
 function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
@@ -235,6 +281,50 @@ export function fetchCustomerChannels(
   return requestJson<{ channels: CustomerChannelItem[] }>(
     `/customers/channels?dataType=${encodedDataType}&customerId=${encodedCustomerId}`,
   )
+}
+
+export function postPartnerConversationWorkflow(
+  payload: PartnerConversationWorkflowPayload,
+): Promise<PartnerConversationWorkflowResponse> {
+  return requestJson<PartnerConversationWorkflowResponse>('/data/query-partner/conversations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function exportPartnerConversationFile(
+  payload: PartnerConversationWorkflowPayload,
+  format: 'csv' | 'json',
+  options?: { gzip?: boolean },
+): Promise<ExportFileResult> {
+  const gzipQuery = format === 'json' && options?.gzip ? '?gzip=1' : ''
+  const response = await fetch(
+    `${API_BASE_URL}/data/query-partner/conversations/export-${format}${gzipQuery}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  )
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const message = body?.message ?? `Request failed (${response.status})`
+    throw new Error(message)
+  }
+
+  const fallbackName = `partner-export.${format}${format === 'json' && options?.gzip ? '.gz' : ''}`
+  const fileName = resolveDownloadFileName(response.headers.get('content-disposition'), fallbackName)
+  const mimeType = response.headers.get('content-type') ?? 'application/octet-stream'
+  const blob = await response.blob()
+
+  return {
+    blob,
+    fileName,
+    mimeType,
+  }
 }
 
 export function login(payload: { email: string; password: string }): Promise<{ token: string; user: AuthUser }> {

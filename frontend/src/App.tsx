@@ -3,11 +3,21 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { UserLogPage } from './pages/UserLogPage'
 import { ServiceLogPage } from './pages/ServiceLogPage'
+import { PartnerLogPage } from './pages/PartnerLogPage'
 import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
 
+function AccessDeniedPage() {
+  return <div className="text-sm text-red-600">접근 권한이 없습니다.</div>
+}
+
 function AppRoutes() {
     const { authUser, authToken } = useAuth()
+
+    const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin'
+    const hasPartnerMenuAccess = authUser?.allowedMenus?.includes('partner-logs') ?? isAdmin
+    const hasPartnerDataAccess = authUser?.allowedDataTypes?.includes('conversations') ?? isAdmin
+    const canAccessPartnerLogs = hasPartnerMenuAccess && hasPartnerDataAccess
     
     // If not authenticated, show Login
     if (!authToken || !authUser) {
@@ -18,7 +28,11 @@ function AppRoutes() {
         <Routes>
             <Route element={<DashboardLayout />}>
                 <Route path="/" element={<UserLogPage />} />
-              <Route path="/service-logs" element={<ServiceLogPage />} />
+                <Route path="/service-logs" element={<ServiceLogPage />} />
+                <Route
+                  path="/partner-logs"
+                  element={canAccessPartnerLogs ? <PartnerLogPage /> : <AccessDeniedPage />}
+                />
                 <Route path="/admin/users" element={<AdminPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
