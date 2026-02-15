@@ -35,7 +35,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] `shared/types/index.ts` — barrel export
 
 ### 1-2. 환경변수 체계화
-- [ ] `backend/.env.example` 작성
+- [x] `backend/.env.example` 작성
   ```
   MONGODB_URI=mongodb+srv://...
   MONGODB_DB_NAME=logdb
@@ -48,11 +48,11 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   QUERY_TIMEOUT_MS=30000
   PORT=8080
   ```
-- [ ] `dotenv` 패키지 추가, `backend/src/config/env.ts` 환경변수 로더 작성
+- [x] `dotenv` 패키지 추가, `backend/src/config/env.ts` 환경변수 로더 작성
 
 ### 1-3. 프론트엔드 프로젝트 초기화
-- [ ] `frontend/` — Vite + React + TypeScript 프로젝트 생성
-- [ ] Tailwind CSS 설치 및 설정
+- [x] `frontend/` — Vite + React + TypeScript 프로젝트 생성
+- [x] Tailwind CSS 설치 및 설정
 - [ ] shadcn/ui 초기화 (Button, Select, Input, Dialog, Table, DatePicker 등)
 - [ ] React Router v6 설치 및 라우트 구성
 - [ ] TanStack Query (React Query v5) 설치 및 QueryClient 설정
@@ -60,12 +60,12 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] `frontend/Dockerfile` (선택) 또는 GitHub Pages 배포 설정
 
 ### 1-4. 백엔드 의존성 추가
-- [ ] `mongodb` — MongoDB Native Driver
-- [ ] `jsonwebtoken` + `@types/jsonwebtoken` — JWT
+- [x] `mongodb` — MongoDB Native Driver
+- [x] `jsonwebtoken` + `@types/jsonwebtoken` — JWT
 - [ ] `bcrypt` + `@types/bcrypt` — 비밀번호 해싱
 - [ ] `fast-csv` — CSV 생성/스트리밍
-- [ ] `zod` — 입력 검증
-- [ ] `dotenv` — 환경변수
+- [x] `zod` — 입력 검증
+- [x] `dotenv` — 환경변수
 
 ### 1-5. 백엔드 디렉토리 구조 확장
 - [ ] `backend/src/routes/` — auth.ts, data.ts, adminUsers.ts, presets.ts
@@ -74,7 +74,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - [x] `schemaProvider.ts` (columns/filters 반환)
 - [ ] `backend/src/middleware/` — authz.ts, auditLogger.ts, errorHandler.ts
 - [ ] `backend/src/models/` — User, Preset, AuditLog 타입/헬퍼
-- [ ] `backend/src/config/` — env.ts, database.ts, schema/
+- [x] `backend/src/config/` — env.ts, database.ts, schema/
   - [x] `schema/` 6개 dataType 스켈레톤 + registry 추가
 
 ---
@@ -85,10 +85,10 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 
 ### 2-0. Production 무영향 스키마 실사 (선행 게이트)
 - [x] `backend/scripts/profile-mongo-readonly.cjs`로 컬렉션/샘플 키/추정 건수 수집
-- [ ] 원칙: Read-Only 쿼리만 사용 (insert/update/delete/index 작업 금지)
-- [ ] 연결 옵션: `readPreference=secondaryPreferred`, `maxTimeMS` 적용
+- [x] 원칙: Read-Only 쿼리만 사용 (insert/update/delete/index 작업 금지)
+- [x] 연결 옵션: `readPreference=secondaryPreferred`, `maxTimeMS` 적용
 - [x] 산출물: `backend/reports/mongo-profile-*.json`
-- [ ] 실사 결과 기준으로 dataType ↔ collection 매핑 및 필터 정의 확정
+- [x] 실사 결과 기준으로 dataType ↔ collection 매핑 및 필터 정의 확정
 
 #### 2-0 실사 결과 (2026-02-14, 제한 샘플)
 - DNS 우회 옵션(`MONGO_PROFILE_DNS_SERVERS=8.8.8.8,1.1.1.1`) 사용 시 read-only 프로파일링 성공
@@ -133,7 +133,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - $limit: MAX_EXPORT_ROWS (기본 10000)
   - seek pagination: afterTs + afterId 기반 커서
 - [x] `buildCountPipeline(request: QueryRequest): Document[]` — total 카운트용
-- [ ] 가드레일: 쿼리 타임아웃 30초, readPreference secondaryPreferred
+- [x] 가드레일: 쿼리 타임아웃 30초, readPreference secondaryPreferred
 - [ ] 단위 테스트 작성 (현재 스모크 테스트: `backend/scripts/smoke-query-builder.ts`)
 
 ### 2-3. 입력값 검증
@@ -147,11 +147,11 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ## Phase 3: 백엔드 API 구현 (M3 — 1주)
 
 ### 3-1. MongoDB 연결 (`backend/src/config/database.ts`)
-- [ ] MongoClient 싱글턴, 연결풀링
+- [x] MongoClient 싱글턴, 연결풀링
 - [ ] Read-Only 계정 접속 (NF-01)
-- [ ] readPreference: secondaryPreferred
-- [ ] graceful shutdown (SIGTERM 시 connection close)
-- [ ] 연결 상태 확인 함수
+- [x] readPreference: secondaryPreferred
+- [x] graceful shutdown (SIGTERM 시 connection close)
+- [x] 연결 상태 확인 함수
 
 ### 3-2. 스키마 조회 API — `GET /api/schema/:dataType`
 - [x] `backend/src/routes/data.ts` 라우트
@@ -173,7 +173,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ### 3-4. 데이터 조회 API — `POST /api/data/query`
 - [x] Zod 입력 검증 → queryBuilder로 파이프라인 생성 → MongoDB 실행
 - [x] 응답: `{ rows, total?, pageSize, nextCursor?, hasMore }`
-- [ ] 미리보기 기본 100행
+- [x] 미리보기 기본 100행
 
 #### 기간별 요청 대응 (월말/분기/반기) 후속
 - [x] `POST /api/data/query`에 `includeTotal` 플래그 추가 및 `total` 반환

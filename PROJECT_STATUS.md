@@ -42,6 +42,9 @@
   - `POST /api/data/export-csv`
   - `POST /api/data/export-json`
   - 프로덕션 DB Read-Only 원칙 유지 (쓰기/스키마 변경 없음)
+- 쿼리 가드레일 운영 적용 확인
+  - 쿼리 타임아웃: `QUERY_TIMEOUT_MS` (기본 30초)
+  - 조회 readPreference: `secondaryPreferred`
 
 ---
 
