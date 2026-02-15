@@ -107,6 +107,80 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 
 > 참고: 2026-02-14 보강 실사(`sampleDocsPerCollection=10`) 리포트 `backend/reports/mongo-profile-2026-02-14T08-59-20-716Z.json`에서 `logentrydbs.channel_id`, `logentrydbs.user_id` 키를 추가 확인함.
 
+#### 2-0 정산 관점 추가 실사 결과 (2026-02-15)
+- [x] Read-Only 재실사로 `billing_logs` 관련 실사용 컬렉션 재확인
+  - 핵심: `prod.userplans`(6126), `prod.userplanhistories`(6965), `prod.plans`(10), `prod.businessplans`(1)
+  - 참고: `prod.businessplanhistories`는 0건
+- [x] 고객 유형 분포 확인: `userplans.isBusiness` 기준 일반 5890 / 비즈니스 236
+- [x] 정산 근거 데이터 범위 확인
+  - 구독 상태/이력: `userplans`, `userplanhistories`
+  - 요금제 마스터/가격: `plans.price(KRW/USD/JPY)`, `discount`, `state`
+  - 사용량 원장: `usagelogs.amount/balance/type`, `transactions.refId/refType/details.usage`
+  - 운영 감사 로그: `logdb.logentrydbs`의 `category=Billing` 1238건 (주로 create/update 이벤트)
+- [x] 리스크 확인
+  - `userplanhistories.usage` 타입 혼재(`missing/int/object`)
+  - `userplans.currentPlan -> plans` 조인 미매칭 일부 존재(약 2.3%)
+  - 명시적 `invoice/refund/receipt` 구조 컬렉션 부재
+
+#### 2-1A. billing_logs 구체안 (MVP + 정산 고려)
+
+##### A) 데이터 소스/조인 전략
+- [ ] 기본 원장: `prod.userplans`
+- [ ] 이력 원장: `prod.userplanhistories`
+- [ ] 플랜 메타 조인: `prod.plans` (`currentPlan`/`plan` 기준)
+- [ ] 보조 근거: `prod.usagelogs` (사용량), `logdb.logentrydbs(category=Billing)` (운영 이벤트)
+
+##### B) 서비스 로그 > 결제 로그 MVP 컬럼
+- [ ] 필수 컬럼
+  - `createdAt` (기준 시각)
+  - `user` (고객 ID)
+  - `isBusiness` (고객 유형)
+  - `currentPlan` / `plan` (플랜 ID)
+  - `planName`, `planState`, `planPriceKRW`, `planPriceUSD`, `discount` (plans 조인)
+  - `paymentDate`, `lastPaymentDate`, `expiresAt`, `deletedAt`
+  - `expired`, `expiredAt` (이력 기반)
+- [ ] 확장 컬럼 (2차)
+  - `usage.numOfChat`, `usage.numOfChannel`, `usage.numOfCharacter`
+  - `available.numOfChat`, `available.numOfChannel`, `available.numOfCharacter`
+  - `nextPlan`, `paymentDateBeforeUnsubscribe`, `reason`
+
+##### C) 필터/검색 (MVP)
+- [ ] 기간 필터: `createdAt` (기본), 필요 시 `paymentDate` 보조
+- [ ] 고객 유형: `isBusiness` (true/false)
+- [ ] 플랜: `planName`(select), `planState`(ACTIVE/INACTIVE)
+- [ ] 상태 필터: `expired`(값 존재 시), `deletedAt`(null/not null)
+- [ ] 식별 검색: `user`, `planId` (`currentPlan`/`plan`)
+
+##### D) 집계 카드 (MVP)
+- [ ] 고객 유형별 활성 구독 수 (`isBusiness`, `deletedAt=null` 기준)
+- [ ] 플랜별 구독 수 (`planName` 기준)
+- [ ] 만료 예정/만료 건수 (`expiresAt`, `expiredAt` 기준)
+- [ ] 최근 결제일 분포 (`paymentDate`, `lastPaymentDate` 존재율)
+
+##### E) 정산 안전장치/예외 규칙
+- [ ] `usage` 정규화 규칙
+  - number/object/missing 혼재 대응: 서버에서 `normalizedUsage` 생성
+  - 파싱 실패 시 원본 유지 + `usageNormalizationStatus` 부여
+- [ ] 플랜 조인 실패 규칙
+  - `planName='UNKNOWN_PLAN'`, `planState='UNKNOWN'`, 원본 `planId` 표시
+- [ ] 금액 표기 원칙
+  - MVP는 `plans.price` 기준 "요금제 기준 금액"으로만 표기
+  - 실결제 금액/환불 금액은 외부 PG 정산 연동 전까지 "미지원" 명시
+- [ ] 운영 이벤트 보조 규칙
+  - `logentrydbs(category=Billing)`는 감사 로그 용도(정산 금액 산식에 직접 사용 금지)
+
+##### F) 구현 작업 항목 (다음 단계 반영)
+- [ ] `backend/src/config/schema/billing_logs.ts` 구체화
+  - 컬럼/필터 정의를 위 MVP 기준으로 확정
+- [ ] `backend/src/services/queryBuilder.ts` 보강
+  - `billing_logs` 전용 `$lookup(plans)` + 안전 projection
+  - `usage` 정규화 projection 추가
+- [ ] `backend/src/services/periodSummary.ts` 보강
+  - `billing_logs` 요약 지표(활성/만료/플랜분포) 추가
+- [ ] `frontend/src/pages/ServiceLogPage.tsx` / `LogDashboard.tsx` 보강
+  - `billing_logs` 선택 시 컬럼 기본셋/필터셋 적용
+  - "요금제 기준 금액" 안내 문구 표시
+
 ### 2-1. 데이터 유형별 스키마 설정 파일
 - [x] `backend/src/config/schema/conversations.ts` (스켈레톤)
   - collection: `conversations`, customerField: `userId`, timestampField: `timestamp`

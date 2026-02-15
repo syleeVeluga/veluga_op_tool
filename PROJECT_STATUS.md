@@ -20,6 +20,11 @@
 
 ## 2) 최근 완료 (2026-02-15)
 
+- 결제 로그 메뉴 기획 문서화(정산 관점)
+  - 실데이터 재실사 반영: `userplans/userplanhistories/plans/businessplans/usagelogs/logentrydbs(category=Billing)`
+  - 결제 로그 MVP 컬럼/필터/집계/예외 규칙 정의
+  - 정산 리스크 명시: usage 타입 혼재, 플랜 조인 미매칭, invoice/refund 구조 컬렉션 부재
+
 - 서비스 로그 전용 메뉴/페이지 추가 (`/service-logs`)
 - `conversations` 고객 보고 모드 요청값 반영
   - `includeSessionMessages=true`
@@ -107,4 +112,4 @@
 ## 7) 참고
 
 - 최신 코드 기준 빌드 검증(프론트): `npm run build` 통과 (2026-02-15)
-- 최신 변경 핵심: 로그 화면 기본 정렬 토글(오름차순/최신순) 공통 적용
+- 최신 변경 핵심: 결제 로그 메뉴(정산 관점) 구체안 문서화 및 실사 리포트 반영
