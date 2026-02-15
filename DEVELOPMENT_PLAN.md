@@ -126,12 +126,12 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 
 ##### A) 데이터 소스/조인 전략
 - [ ] 기본 원장: `prod.userplans`
-- [ ] 이력 원장: `prod.userplanhistories`
-- [ ] 플랜 메타 조인: `prod.plans` (`currentPlan`/`plan` 기준)
+- [x] 이력 원장: `prod.userplanhistories`
+- [x] 플랜 메타 조인: `prod.plans` (`currentPlan`/`plan` 기준)
 - [ ] 보조 근거: `prod.usagelogs` (사용량), `logdb.logentrydbs(category=Billing)` (운영 이벤트)
 
 ##### B) 서비스 로그 > 결제 로그 MVP 컬럼
-- [ ] 필수 컬럼
+- [x] 필수 컬럼
   - `createdAt` (기준 시각)
   - `user` (고객 ID)
   - `isBusiness` (고객 유형)
@@ -145,11 +145,11 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - `nextPlan`, `paymentDateBeforeUnsubscribe`, `reason`
 
 ##### C) 필터/검색 (MVP)
-- [ ] 기간 필터: `createdAt` (기본), 필요 시 `paymentDate` 보조
-- [ ] 고객 유형: `isBusiness` (true/false)
-- [ ] 플랜: `planName`(select), `planState`(ACTIVE/INACTIVE)
-- [ ] 상태 필터: `expired`(값 존재 시), `deletedAt`(null/not null)
-- [ ] 식별 검색: `user`, `planId` (`currentPlan`/`plan`)
+- [x] 기간 필터: `createdAt` (기본), 필요 시 `paymentDate` 보조
+- [x] 고객 유형: `isBusiness` (true/false)
+- [x] 플랜: `planName`(select), `planState`(ACTIVE/INACTIVE)
+- [x] 상태 필터: `expired`(값 존재 시), `deletedAt`(null/not null)
+- [x] 식별 검색: `user`, `planId` (`currentPlan`/`plan`)
 
 ##### D) 집계 카드 (MVP)
 - [ ] 고객 유형별 활성 구독 수 (`isBusiness`, `deletedAt=null` 기준)
@@ -158,10 +158,10 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 - [ ] 최근 결제일 분포 (`paymentDate`, `lastPaymentDate` 존재율)
 
 ##### E) 정산 안전장치/예외 규칙
-- [ ] `usage` 정규화 규칙
+- [x] `usage` 정규화 규칙
   - number/object/missing 혼재 대응: 서버에서 `normalizedUsage` 생성
   - 파싱 실패 시 원본 유지 + `usageNormalizationStatus` 부여
-- [ ] 플랜 조인 실패 규칙
+- [x] 플랜 조인 실패 규칙
   - `planName='UNKNOWN_PLAN'`, `planState='UNKNOWN'`, 원본 `planId` 표시
 - [ ] 금액 표기 원칙
   - MVP는 `plans.price` 기준 "요금제 기준 금액"으로만 표기
@@ -170,16 +170,26 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
   - `logentrydbs(category=Billing)`는 감사 로그 용도(정산 금액 산식에 직접 사용 금지)
 
 ##### F) 구현 작업 항목 (다음 단계 반영)
-- [ ] `backend/src/config/schema/billing_logs.ts` 구체화
+- [x] `backend/src/config/schema/billing_logs.ts` 구체화
   - 컬럼/필터 정의를 위 MVP 기준으로 확정
-- [ ] `backend/src/services/queryBuilder.ts` 보강
+- [x] `backend/src/services/queryBuilder.ts` 보강
   - `billing_logs` 전용 `$lookup(plans)` + 안전 projection
   - `usage` 정규화 projection 추가
-- [ ] `backend/src/services/periodSummary.ts` 보강
+- [x] `backend/src/services/periodSummary.ts` 보강
   - `billing_logs` 요약 지표(활성/만료/플랜분포) 추가
 - [ ] `frontend/src/pages/ServiceLogPage.tsx` / `LogDashboard.tsx` 보강
-  - `billing_logs` 선택 시 컬럼 기본셋/필터셋 적용
-  - "요금제 기준 금액" 안내 문구 표시
+- [x] `frontend/src/pages/ServiceLogPage.tsx` / `LogDashboard.tsx` 보강
+  - [x] `billing_logs` 선택 시 컬럼 기본셋/필터셋 적용
+  - [x] "요금제 기준 금액" 안내 문구 표시
+
+#### 2-1B. 비IT 사용자 사용성 검토 (2026-02-15)
+- [x] 1차 결론: 현재 UI는 비IT 사용자도 운영 가능(고객검색/기본필터/다운로드 흐름 확보)
+- [x] 헷갈림 완화 반영: `billing_logs` 기본 필터(`deletedState=active`) 및 기본 컬럼셋 자동 적용
+- [x] 정산 오해 방지 반영: "요금제 기준 금액(plans.price), 실결제/환불 미지원" 문구 노출
+- [ ] 후속 개선(우선순위)
+  - 라벨 현지화: `Data Type`, `Customer ID`, `Include Total` 등 영문 UI 문구 한글화
+  - 용어 단순화: `billing_logs` 표기를 `결제 로그` 중심으로 통일
+  - 초심자 모드 가이드: 첫 진입 시 3단계 사용 안내(고객 선택 → 기간 선택 → 조회/다운로드)
 
 ### 2-1. 데이터 유형별 스키마 설정 파일
 - [x] `backend/src/config/schema/conversations.ts` (스켈레톤)

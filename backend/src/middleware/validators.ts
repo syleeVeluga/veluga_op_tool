@@ -75,7 +75,7 @@ const conversationBatchRequestSchema = z.object({
 
 const periodSummaryRequestSchema = z
   .object({
-    dataType: z.enum(["api_usage_logs", "conversations"]),
+    dataType: z.enum(["api_usage_logs", "conversations", "billing_logs"]),
     groupBy: z.enum(["month", "quarter", "halfyear"]),
     customerId: z.string().trim().min(1).optional(),
     channelIds: z.array(z.string().trim().min(1)).min(1).max(500).optional(),
@@ -85,6 +85,15 @@ const periodSummaryRequestSchema = z
     }),
   })
   .superRefine((value, ctx) => {
+    if (value.dataType === "billing_logs" && !value.customerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "customerId is required for billing_logs summary",
+        path: ["customerId"],
+      });
+      return;
+    }
+
     if (!value.customerId && (!value.channelIds || value.channelIds.length === 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

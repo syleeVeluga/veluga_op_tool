@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import { getDb } from "../config/database";
 import { schemaRegistry } from "../config/schema";
 
-export type SummaryDataType = "api_usage_logs" | "conversations";
+export type SummaryDataType = "api_usage_logs" | "conversations" | "billing_logs";
 export type SummaryGroupBy = "month" | "quarter" | "halfyear";
 
 export interface PeriodSummaryRequest {
@@ -28,6 +28,10 @@ export interface PeriodSummaryBucket {
   outputTokens?: number;
   totalTokens?: number;
   avgBalance?: number;
+  activeSubscriptions?: number;
+  expiredCount?: number;
+  businessCount?: number;
+  unknownPlanCount?: number;
 }
 
 export interface PeriodSummaryResponse {
@@ -107,7 +111,11 @@ function buildMatch(request: PeriodSummaryRequest): Document {
     match[schema.customerField] = request.customerId;
   }
 
-  if (request.channelIds && request.channelIds.length > 0) {
+  if (
+    request.channelIds &&
+    request.channelIds.length > 0 &&
+    (request.dataType === "api_usage_logs" || request.dataType === "conversations")
+  ) {
     match.channel = { $in: request.channelIds };
   }
 
@@ -189,7 +197,7 @@ export async function getPeriodSummary(
       },
       { $sort: { _id: 1 } },
     ];
-  } else {
+  } else if (request.dataType === "conversations") {
     pipeline = [
       { $match: match },
       {
@@ -213,6 +221,91 @@ export async function getPeriodSummary(
           conversationCount: 1,
           activeChannels: { $size: "$channels" },
           activeCreators: { $size: "$creators" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ];
+  } else {
+    pipeline = [
+      { $match: match },
+      {
+        $addFields: {
+          planId: {
+            $ifNull: ["$currentPlan", "$plan"],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "plans",
+          let: {
+            planIdRaw: "$planId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ["$_id", "$$planIdRaw"] },
+                    {
+                      $eq: [
+                        { $toString: "$_id" },
+                        { $toString: "$$planIdRaw" },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 1 } },
+          ],
+          as: "planMetaList",
+        },
+      },
+      {
+        $project: {
+          periodStart,
+          isBusiness: "$isBusiness",
+          deletedAt: "$deletedAt",
+          expired: "$expired",
+          expiredAt: "$expiredAt",
+          hasPlanMatch: {
+            $gt: [{ $size: "$planMetaList" }, 0],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$periodStart",
+          activeSubscriptions: {
+            $sum: {
+              $cond: [{ $eq: ["$deletedAt", null] }, 1, 0],
+            },
+          },
+          expiredCount: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ["$expired", true] },
+                    { $ne: ["$expiredAt", null] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          businessCount: {
+            $sum: {
+              $cond: [{ $eq: ["$isBusiness", true] }, 1, 0],
+            },
+          },
+          unknownPlanCount: {
+            $sum: {
+              $cond: [{ $eq: ["$hasPlanMatch", false] }, 1, 0],
+            },
+          },
         },
       },
       { $sort: { _id: 1 } },
@@ -251,6 +344,18 @@ export async function getPeriodSummary(
       typeof doc.totalTokens === "number" ? doc.totalTokens : undefined,
     avgBalance:
       typeof doc.avgBalance === "number" ? doc.avgBalance : undefined,
+    activeSubscriptions:
+      typeof doc.activeSubscriptions === "number"
+        ? doc.activeSubscriptions
+        : undefined,
+    expiredCount:
+      typeof doc.expiredCount === "number" ? doc.expiredCount : undefined,
+    businessCount:
+      typeof doc.businessCount === "number" ? doc.businessCount : undefined,
+    unknownPlanCount:
+      typeof doc.unknownPlanCount === "number"
+        ? doc.unknownPlanCount
+        : undefined,
   }));
 
   const start = parseDate(request.dateRange.start, "dateRange.start");

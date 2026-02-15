@@ -54,6 +54,30 @@ const SERVICE_REPORT_COLUMNS = [
   'matchSource',
 ] as const
 
+const BILLING_DEFAULT_COLUMNS = [
+  'createdAt',
+  'user',
+  'isBusiness',
+  'planId',
+  'planName',
+  'planState',
+  'planPriceKRW',
+  'discount',
+  'paymentDate',
+  'lastPaymentDate',
+  'expiresAt',
+  'deletedAt',
+  'expired',
+  'expiredAt',
+  'usageNormalizationStatus',
+] as const
+
+function buildBillingDefaultFilters(): FilterInputState {
+  return {
+    deletedState: 'active',
+  }
+}
+
 export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const initialQuerySettings = loadStoredQueryUiSettings()
 
@@ -151,25 +175,27 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
       try {
         const result = await fetchSchema(dataType)
         setSchema(result)
-        
-        // Reset filters when schema changes
-        setFilterInputs({}) 
-        
+
         // Load stored filters or columns if needed
         const storedFilters = loadStoredFilterState(dataType)
         if (storedFilters) {
-           // We might apply stored filters here, but need to validate against new schema
-           // For now, let's just use what we have or sanitize
            setCustomerId(storedFilters.customerId)
-           // Defer setting filters until schema is ready? 
-           // Implementation note: The original App.tsx loaded filter inputs from storage.
-           // We'll mimic basic behavior or reset.
            setFilterInputs(sanitizeStoredFilters(result, storedFilters.filters))
+        } else if (dataType === 'billing_logs') {
+          setFilterInputs(buildBillingDefaultFilters())
+        } else {
+          setFilterInputs({})
         }
 
         const storedColumns = loadStoredColumns(dataType)
         if (storedColumns) {
             setSelectedColumns(storedColumns)
+        } else if (dataType === 'billing_logs') {
+            const availableSchemaColumns = new Set(result.columns.map((column) => column.key))
+            const billingDefaults = BILLING_DEFAULT_COLUMNS.filter((column) =>
+              availableSchemaColumns.has(column),
+            )
+            setSelectedColumns(billingDefaults)
         } else {
             setSelectedColumns([])
         }
@@ -612,6 +638,9 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
               <div className="text-xs font-semibold text-slate-700">Data Type 안내</div>
               <p className="mt-1 text-xs text-slate-600">{isServiceMode ? selectedGuide.serviceDescription ?? selectedGuide.description : selectedGuide.description}</p>
               <p className="mt-1 text-xs text-slate-600">조회 식별자 키: {selectedGuide.customerKey}</p>
+              {dataType === 'billing_logs' && (
+                <p className="mt-1 text-xs text-amber-700">금액은 요금제 기준 금액(plans.price)이며, 실결제/환불 금액은 현재 미지원입니다.</p>
+              )}
             </div>
 
             {/* Customer ID Input */}
@@ -916,6 +945,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
           </div>
 
           {exportNotice && <p className="mb-3 text-xs text-slate-600">{exportNotice}</p>}
+
+          {dataType === 'billing_logs' && (
+            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">
+              안내: 결제 로그의 금액 컬럼은 정산 참고용 요금제 기준 금액이며, PG 실결제/환불 금액은 포함되지 않습니다.
+            </p>
+          )}
 
           {isServiceMode && reportSummary && (
             <div className="mb-3 rounded-md border bg-slate-50 p-3 text-xs text-slate-700">

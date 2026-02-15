@@ -205,6 +205,242 @@ function expandCustomerIds(ids: string[]): Array<string | ObjectId> {
   return Array.from(expanded.values());
 }
 
+function parseBooleanFilterValue(filterKey: string, value: QueryFilterValue): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  throw new Error(`select filter '${filterKey}' must be 'true' or 'false'`);
+}
+
+function buildBillingFilterMatch(
+  schemaFilters: SchemaFilter[],
+  requestFilters: Record<string, QueryFilterValue | undefined> | undefined
+): Document {
+  const match: Document = {};
+
+  if (!requestFilters) {
+    return match;
+  }
+
+  const supportedFilterMap = new Map(schemaFilters.map((filter) => [filter.key, filter]));
+
+  for (const [filterKey, rawValue] of Object.entries(requestFilters)) {
+    if (rawValue === undefined || rawValue === null || rawValue === "") {
+      continue;
+    }
+
+    const schemaFilter = supportedFilterMap.get(filterKey);
+    if (!schemaFilter) {
+      throw new Error(`Unsupported filter key: ${filterKey}`);
+    }
+
+    if (filterKey === "deletedState") {
+      if (typeof rawValue !== "string") {
+        throw new Error("select filter 'deletedState' must be 'active' or 'deleted'");
+      }
+
+      const normalized = rawValue.trim().toLowerCase();
+      if (normalized === "active") {
+        match.deletedAt = null;
+        continue;
+      }
+
+      if (normalized === "deleted") {
+        match.deletedAt = { $ne: null };
+        continue;
+      }
+
+      throw new Error("select filter 'deletedState' must be 'active' or 'deleted'");
+    }
+
+    if (filterKey === "isBusiness" || filterKey === "expired") {
+      match[filterKey] = parseBooleanFilterValue(filterKey, rawValue);
+      continue;
+    }
+
+    if (schemaFilter.type === "search") {
+      if (typeof rawValue !== "string") {
+        throw new Error(`search filter '${filterKey}' must be a string`);
+      }
+
+      match[filterKey] = resolveSearchCondition(rawValue);
+      continue;
+    }
+
+    if (schemaFilter.type === "select") {
+      match[filterKey] = rawValue;
+      continue;
+    }
+
+    if (schemaFilter.type === "range") {
+      match[filterKey] = resolveRangeCondition(filterKey, rawValue);
+    }
+  }
+
+  return match;
+}
+
+function billingLookupPipeline(): Document[] {
+  return [
+    {
+      $addFields: {
+        planId: {
+          $ifNull: ["$currentPlan", "$plan"],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "plans",
+        let: {
+          planIdRaw: "$planId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ["$_id", "$$planIdRaw"] },
+                  {
+                    $eq: [
+                      { $toString: "$_id" },
+                      { $toString: "$$planIdRaw" },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              title: 1,
+              planName: 1,
+              state: 1,
+              price: 1,
+              discount: 1,
+            },
+          },
+        ],
+        as: "planMetaList",
+      },
+    },
+    {
+      $addFields: {
+        planMeta: { $first: "$planMetaList" },
+        planId: {
+          $toString: {
+            $ifNull: ["$planId", ""],
+          },
+        },
+        planName: {
+          $ifNull: [
+            "$planMeta.name",
+            {
+              $ifNull: [
+                "$planMeta.title",
+                {
+                  $ifNull: ["$planMeta.planName", "UNKNOWN_PLAN"],
+                },
+              ],
+            },
+          ],
+        },
+        planState: {
+          $ifNull: ["$planMeta.state", "UNKNOWN"],
+        },
+        planPriceKRW: {
+          $ifNull: ["$planMeta.price.KRW", null],
+        },
+        planPriceUSD: {
+          $ifNull: ["$planMeta.price.USD", null],
+        },
+        planPriceJPY: {
+          $ifNull: ["$planMeta.price.JPY", null],
+        },
+        discount: {
+          $ifNull: ["$planMeta.discount", null],
+        },
+        usageNormalizationStatus: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $eq: [{ $type: "$usage" }, "object"],
+                },
+                then: "object",
+              },
+              {
+                case: {
+                  $in: [
+                    { $type: "$usage" },
+                    ["int", "long", "double", "decimal"],
+                  ],
+                },
+                then: "number",
+              },
+              {
+                case: {
+                  $eq: [{ $type: "$usage" }, "missing"],
+                },
+                then: "missing",
+              },
+            ],
+            default: "unsupported",
+          },
+        },
+        normalizedUsage: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $eq: [{ $type: "$usage" }, "object"],
+                },
+                then: {
+                  numOfChat: {
+                    $ifNull: ["$usage.numOfChat", null],
+                  },
+                  numOfChannel: {
+                    $ifNull: ["$usage.numOfChannel", null],
+                  },
+                  numOfCharacter: {
+                    $ifNull: ["$usage.numOfCharacter", null],
+                  },
+                },
+              },
+              {
+                case: {
+                  $in: [
+                    { $type: "$usage" },
+                    ["int", "long", "double", "decimal"],
+                  ],
+                },
+                then: {
+                  rawNumber: "$usage",
+                },
+              },
+            ],
+            default: null,
+          },
+        },
+      },
+    },
+  ];
+}
+
 function buildBaseMatch(request: QueryRequest): { match: Document; timestampField: string; projection: Document; limit: number } {
   const schema = schemaRegistry[request.dataType];
   const { customerField, timestampField, filters: schemaFilters, columns: schemaColumns } = schema;
@@ -269,6 +505,33 @@ function buildBaseMatch(request: QueryRequest): { match: Document; timestampFiel
 }
 
 export function buildAggregationPipeline(request: QueryRequest): Document[] {
+  if (request.dataType === "billing_logs") {
+    const schema = schemaRegistry[request.dataType];
+    const { match, timestampField, projection, limit } = buildBaseMatch({
+      ...request,
+      filters: undefined,
+    });
+
+    const billingFilterMatch = buildBillingFilterMatch(schema.filters, request.filters);
+
+    const pipeline: Document[] = [
+      { $match: match },
+      ...billingLookupPipeline(),
+    ];
+
+    if (Object.keys(billingFilterMatch).length > 0) {
+      pipeline.push({ $match: billingFilterMatch });
+    }
+
+    pipeline.push(
+      { $sort: { [timestampField]: -1, _id: -1 } },
+      { $project: projection },
+      { $limit: limit + 1 }
+    );
+
+    return pipeline;
+  }
+
   const { match, timestampField, projection, limit } = buildBaseMatch(request);
 
   return [
@@ -280,6 +543,32 @@ export function buildAggregationPipeline(request: QueryRequest): Document[] {
 }
 
 export function buildCountPipeline(request: QueryRequest): Document[] {
+  if (request.dataType === "billing_logs") {
+    const schema = schemaRegistry[request.dataType];
+    const { match } = buildBaseMatch({
+      ...request,
+      cursor: undefined,
+      pageSize: undefined,
+      columns: undefined,
+      filters: undefined,
+    });
+
+    const billingFilterMatch = buildBillingFilterMatch(schema.filters, request.filters);
+
+    const pipeline: Document[] = [
+      { $match: match },
+      ...billingLookupPipeline(),
+    ];
+
+    if (Object.keys(billingFilterMatch).length > 0) {
+      pipeline.push({ $match: billingFilterMatch });
+    }
+
+    pipeline.push({ $count: "total" });
+
+    return pipeline;
+  }
+
   const { match } = buildBaseMatch({
     ...request,
     cursor: undefined,

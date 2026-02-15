@@ -20,6 +20,11 @@
 
 ## 2) 최근 완료 (2026-02-15)
 
+- 비IT 사용자 사용성 점검(1차) 완료
+  - 결론: 고객 검색 + 기본 필터 + 조회/다운로드 흐름으로 실무 사용 가능
+  - 보완 반영: `billing_logs` 기본 필터/기본 컬럼 자동 적용
+  - 오해 방지: 결제 금액은 "요금제 기준 금액(plans.price)"이며 실결제/환불 미지원 문구 표기
+
 - 결제 로그 메뉴 기획 문서화(정산 관점)
   - 실데이터 재실사 반영: `userplans/userplanhistories/plans/businessplans/usagelogs/logentrydbs(category=Billing)`
   - 결제 로그 MVP 컬럼/필터/집계/예외 규칙 정의
