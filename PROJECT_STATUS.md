@@ -1,6 +1,6 @@
 # 프로젝트 진행 현황 — User Log Dashboard
 
-> 최종 갱신: 2026-02-15
+> 최종 갱신: 2026-02-18
 > 목적: 현재 상태를 빠르게 파악하는 운영용 요약 문서 (상세 설계/요구사항은 별도 문서 참조)
 
 ---
@@ -12,14 +12,31 @@
 | 백엔드 API | 🟢 안정화 단계 | 조회/요약/고객검색/인증/관리자 사용자 관리 동작 |
 | 프론트 대시보드 | 🟢 운영 가능 | 사용자 로그 + 서비스 로그 + 관리자 페이지 |
 | 서비스 로그(Q/A 매핑) | 🟢 1차 완료 | 고객 보고 모드/세션 매핑/요약 지표 반영 |
-| 파트너 로그(기관 단위) | 🟡 계획 확정 | 메뉴 신설 + 저부하 추출/감사 게이트 반영 예정 |
+| 파트너 로그(기관 단위) | 🟢 MVP 완료 | 전용 페이지/권한 가드/파트너 전용 다운로드 API 반영 |
 | 배포 파이프라인 | 🟢 운영 중 | Cloud Run 배포 스크립트 + GitHub Actions |
-| Export(서버 스트리밍) | 🟢 1차 완료 | `/api/data/export-csv`, `/api/data/export-json` 제공 |
+| Export(서버 스트리밍) | 🟢 확장 완료 | 기본 export + 파트너 전용 export(csv/json/gzip) 제공 |
 | 프리셋/히스토리 고도화 | 🟡 후속 과제 | 기본 실행 이력만 제공 |
 
 ---
 
-## 2) 최근 완료 (2026-02-15)
+## 2) 최근 완료 (2026-02-18)
+
+- 파트너 로그 메뉴/페이지 MVP 구현 완료
+  - 프론트: `/partner-logs` 페이지 신설 (`frontend/src/pages/PartnerLogPage.tsx`)
+  - 사이드바 메뉴 노출 + 권한 없는 사용자 비노출
+  - 라우트 가드: 메뉴 권한 + 데이터 권한(conversations) 동시 검사
+  - 실행 메타 표시 + 실패 청크 요약 표시
+  - CSV/JSON 다운로드 + JSON gzip 옵션 제공
+
+- 파트너 전용 Export API 추가(서버 스트리밍)
+  - `POST /api/data/query-partner/conversations/export-csv`
+  - `POST /api/data/query-partner/conversations/export-json` (`?gzip=1` 지원)
+  - 프론트 다운로드를 클라이언트 생성 방식에서 서버 export API 기반으로 전환
+
+- 파트너 저부하 가드레일 보강
+  - 월 경계 중복 조회 제거(윈도우 end 보정)
+  - 실패 청크 `attempts`를 실제 재시도 횟수로 기록
+  - 실행 메타에 `pauseMs`, `maxRetries` 포함
 
 - 비IT 사용자 사용성 점검(1차) 완료
   - 결론: 고객 검색 + 기본 필터 + 조회/다운로드 흐름으로 실무 사용 가능
@@ -91,7 +108,9 @@
 - Schema: `GET /api/schema/:dataType`
 - Query: `POST /api/data/query`
 - Batch(대화): `POST /api/data/query-batch/conversations`
+- Partner Workflow: `POST /api/data/query-partner/conversations`
 - Export: `POST /api/data/export-csv`, `POST /api/data/export-json`
+- Partner Export: `POST /api/data/query-partner/conversations/export-csv`, `POST /api/data/query-partner/conversations/export-json?gzip=1`
 - Summary: `POST /api/data/summary/period`, `POST /api/data/summary/by-data-type`
 - Customer Search: `GET /api/customers/search?q=`
 - Customer Channels: `GET /api/customers/channels?dataType=&customerId=`
@@ -101,7 +120,7 @@
 - 로그인, 권한 기반 라우팅/사이드바
 - 사용자 로그 대시보드 (`/`)
 - 서비스 로그 대시보드 (`/service-logs`)
-- 파트너 로그 대시보드 (`/partner-logs`) — 계획 단계
+- 파트너 로그 대시보드 (`/partner-logs`) — MVP 운영 가능
 - 관리자 사용자 관리 (`/admin/users`)
 - 필터/스키마 기반 조회, 컬럼 선택, CSV/JSON 다운로드
 
@@ -109,13 +128,12 @@
 
 ## 4) 다음 우선순위 (Short Backlog)
 
-1. 프리셋 CRUD + 재실행 UX
-2. 조회 히스토리 고도화(필터/결과 메타 재사용)
-3. 파트너 로그 메뉴/페이지 MVP 구현 (`/partner-logs`)
-4. 파트너 추출 API 연계(월 윈도우 분할, 청크 실행 메타)
-5. 감사로그 게이트 적용(권한 보유 운영자 + 추출 이력 필수)
-6. 성능 가드레일 보강(대용량 기간/채널 조합)
-7. 운영 문서 자동화(릴리스 노트/변경 로그 연동)
+1. 감사로그 게이트 적용(권한 보유 운영자 + 추출 이력 필수)
+2. 파트너 추출 라우트 인증/인가 강제
+3. 프리셋 CRUD + 재실행 UX
+4. 조회 히스토리 고도화(필터/결과 메타 재사용)
+5. 성능 가드레일 보강(대용량 기간/채널 조합)
+6. 운영 문서 자동화(릴리스 노트/변경 로그 연동)
 
 ---
 
@@ -141,5 +159,5 @@
 
 ## 7) 참고
 
-- 최신 코드 기준 빌드 검증(프론트): `npm run build` 통과 (2026-02-15)
-- 최신 변경 핵심: 결제 로그 구체안 + 파트너 로그 메뉴/추출 계획 문서화
+- 최신 코드 기준 빌드 검증: `backend npm run build`, `frontend npm run build` 통과 (2026-02-18)
+- 최신 변경 핵심: 파트너 로그 MVP + 파트너 전용 export(csv/json/gzip) + 저부하 가드레일 보강
