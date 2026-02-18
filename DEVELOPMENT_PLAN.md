@@ -413,7 +413,7 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ### 3-11. 에러 핸들링
 - [x] `backend/src/middleware/errorHandler.ts`
   - 전역 에러 핸들러, 구조화된 에러 응답
-  - `{ error: { code, message, details? } }`
+  - `{ error: { code, message, details? } }`를 
 
 ---
 
@@ -502,10 +502,13 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ## Phase 7: 관리자 기능 (M7 — 0.5주)
 
 ### 7-1. 관리자 페이지
-- [ ] `frontend/src/pages/AdminUsers.tsx`
-  - 사용자 목록 테이블
-  - 추가 폼: 이메일, 이름, 역할, 메뉴 권한(체크박스), 데이터 유형(체크박스)
-  - 수정/비활성화
+- [x] `frontend/src/pages/AdminPage.tsx` (기존 파일명 유지)
+  - 사용자 목록 테이블 (역할 배지, 상태 배지, 메뉴/데이터 권한 배지)
+  - 추가 폼 (모달): 이메일, 이름, 비밀번호, 역할, 계정 상태, 메뉴 권한(체크박스), 데이터 유형(체크박스)
+  - 편집 모달: 이메일, 이름, 역할, 상태, 새 비밀번호(선택), 메뉴 권한, 데이터 유형
+  - 비활성화/활성화 토글 + 하드 삭제
+  - `Modal`, `Checkbox` UI 컴포넌트 신규 추가 (`frontend/src/components/ui/`)
+  - allowedMenus/allowedDataTypes: UI 미리보기 구현 완료 (백엔드 연동은 7-2에서)
 
 ### 7-2. 메뉴 접근 제어 통합
 - [ ] Sidebar에서 `allowedMenus` 기반 메뉴 필터링

@@ -1,6 +1,6 @@
 # 프로젝트 진행 현황 — User Log Dashboard
 
-> 최종 갱신: 2026-02-18
+> 최종 갱신: 2026-02-18 (Phase 7-1)
 > 목적: 현재 상태를 빠르게 파악하는 운영용 요약 문서 (상세 설계/요구사항은 별도 문서 참조)
 
 ---
@@ -10,7 +10,7 @@
 | 영역 | 상태 | 비고 |
 |---|---|---|
 | 백엔드 API | 🟢 안정화 단계 | 조회/요약/고객검색/인증/관리자 사용자 관리 동작 |
-| 프론트 대시보드 | 🟢 운영 가능 | 사용자 로그 + 서비스 로그 + 관리자 페이지 |
+| 프론트 대시보드 | 🟢 운영 가능 | 사용자 로그 + 서비스 로그 + 파트너 로그 + 관리자 페이지(7-1 완료) |
 | 서비스 로그(Q/A 매핑) | 🟢 1차 완료 | 고객 보고 모드/세션 매핑/요약 지표 반영 |
 | 파트너 로그(기관 단위) | 🟢 MVP 완료 | 전용 페이지/권한 가드/파트너 전용 다운로드 API 반영 |
 | 배포 파이프라인 | 🟢 운영 중 | Cloud Run 배포 스크립트 + GitHub Actions |
@@ -20,6 +20,18 @@
 ---
 
 ## 2) 최근 완료 (2026-02-18)
+
+- **Phase 7-1 관리자 페이지 구현 완료**
+  - `AdminPage.tsx` 전면 재작성 (인라인 편집 → 모달 기반 UX)
+  - 사용자 추가 모달: 이메일, 이름, 비밀번호, 역할, 계정 상태
+  - 사용자 편집 모달: 전체 필드 편집 + 선택적 비밀번호 변경
+  - 메뉴 권한(allowedMenus) 체크박스 UI: user-logs / service-logs / partner-logs / admin
+  - 데이터 유형(allowedDataTypes) 체크박스 UI: api_usage_logs / billing_logs / conversations / error_logs / event_logs
+  - 목록 테이블: 역할/상태/메뉴권한/데이터권한 배지 표시, 수정일 표시
+  - 비활성화 토글 + 하드 삭제 모두 유지
+  - `window.prompt()` 비밀번호 재설정 → 편집 모달 내 선택적 입력으로 대체
+  - 신규 UI 컴포넌트: `Modal`, `Checkbox` (`frontend/src/components/ui/`)
+  - allowedMenus/allowedDataTypes 백엔드 연동은 Phase 7-2에서 진행
 
 - 파트너 로그 메뉴/페이지 MVP 구현 완료
   - 프론트: `/partner-logs` 페이지 신설 (`frontend/src/pages/PartnerLogPage.tsx`)
@@ -121,7 +133,7 @@
 - 사용자 로그 대시보드 (`/`)
 - 서비스 로그 대시보드 (`/service-logs`)
 - 파트너 로그 대시보드 (`/partner-logs`) — MVP 운영 가능
-- 관리자 사용자 관리 (`/admin/users`)
+- 관리자 사용자 관리 (`/admin`) — 모달 기반 CRUD, 메뉴/데이터 권한 UI(7-1)
 - 필터/스키마 기반 조회, 컬럼 선택, CSV/JSON 다운로드
 
 ---
@@ -160,4 +172,4 @@
 ## 7) 참고
 
 - 최신 코드 기준 빌드 검증: `backend npm run build`, `frontend npm run build` 통과 (2026-02-18)
-- 최신 변경 핵심: 파트너 로그 MVP + 파트너 전용 export(csv/json/gzip) + 저부하 가드레일 보강
+- 최신 변경 핵심(7-1): 관리자 페이지 모달 기반 UX 재작성 + allowedMenus/allowedDataTypes 체크박스 UI + Modal/Checkbox 컴포넌트 추가

@@ -19,8 +19,22 @@ export interface AdminUserFormState {
   role: UserRole
   password: string
   isActive: boolean
+  allowedMenus: string[]
+  allowedDataTypes: DataType[]
 }
 
+export interface AdminUserEditState {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  isActive: boolean
+  newPassword: string
+  allowedMenus: string[]
+  allowedDataTypes: DataType[]
+}
+
+/** @deprecated replaced by modal-based AdminUserEditState */
 export interface AdminUserEditDraft {
   email: string
   name: string
