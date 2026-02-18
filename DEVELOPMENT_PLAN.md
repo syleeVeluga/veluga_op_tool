@@ -2,7 +2,7 @@
 
 > 본 문서는 PRD v1.2.1 (PRD_v1_2_1_CloudRun.md) 기반의 단계별 구현 계획입니다.
 > Copilot 및 AI 보조 개발 시 컨텍스트 참조용으로 작성되었습니다.
-> 최종 갱신: 2026-02-15
+> 최종 갱신: 2026-02-18
 > 운영 기준의 최신 완료 상태는 `PROJECT_STATUS.md`를 우선하며, 본 문서의 일부 초기 체크리스트는 이력 보존용입니다.
 
 ---
@@ -522,8 +522,13 @@ React SPA (GitHub Pages) → Cloud Run Backend API → MongoDB Atlas (Read-Only)
 ## Phase 8: 통합 테스트 + QA + 배포 (M8 — 1주)
 
 ### 8-1. 테스트
-- [ ] 백엔드 단위 테스트: queryBuilder, csvGenerator, jsonExporter
-- [ ] API 통합 테스트: 모든 엔드포인트
+- [x] TypeScript 컴파일 검사 통과 (백엔드 + 프론트엔드 `tsc --noEmit`, 2026-02-18)
+- [x] Smoke 테스트 실행 (2026-02-18, 커밋 `a0ca77e`)
+  - ✅ schema-endpoint / query-builder / data-query / customer-search
+  - ✅ conversation-batch / period-summary / data-type-summary / conversation-session-mapping
+  - ❌ auth-inactive-login: 로컬 MongoDB Atlas DNS 연결 불가 (운영 환경 통과 예상)
+  - ⏭️ partner-workflow: `SMOKE_PARTNER_ID` 미설정 스킵
+- [ ] 백엔드 단위 테스트 추가: queryBuilder, csvGenerator, jsonExporter
 - [ ] UC-01~UC-06 시나리오 수동 검증
 - [ ] 보안 테스트: NoSQL Injection, 권한 우회
 

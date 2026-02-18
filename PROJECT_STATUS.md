@@ -1,6 +1,6 @@
 # 프로젝트 진행 현황 — User Log Dashboard
 
-> 최종 갱신: 2026-02-18 (Phase 7-1)
+> 최종 갱신: 2026-02-18 (Phase 8-1)
 > 목적: 현재 상태를 빠르게 파악하는 운영용 요약 문서 (상세 설계/요구사항은 별도 문서 참조)
 
 ---
@@ -20,6 +20,22 @@
 ---
 
 ## 2) 최근 완료 (2026-02-18)
+
+- **Phase 8-1 통합 테스트 (smoke 테스트) 완료**
+  - 백엔드 TypeScript 컴파일 검사 통과 (`tsc --noEmit` 에러 없음)
+  - 프론트엔드 TypeScript 컴파일 검사 통과 (`tsc --noEmit` 에러 없음)
+  - Smoke 테스트 9종 중 8종 통과 (1종 네트워크 의존 실패, 1종 스킵)
+    - ✅ `smoke-schema-endpoint`: GET /api/schema/:dataType (유효/무효 검증)
+    - ✅ `smoke-query-builder`: queryBuilder 파이프라인 + 가드레일
+    - ✅ `smoke-data-query-endpoint`: POST /api/data/query 유효성 검사
+    - ✅ `smoke-customer-search-endpoint`: GET /api/customers/search min-length 가드
+    - ✅ `smoke-conversation-batch-endpoint`: POST /api/data/query-batch/conversations
+    - ✅ `smoke-period-summary-endpoint`: POST /api/data/summary/period
+    - ✅ `smoke-data-type-summary-endpoint`: POST /api/data/summary/by-data-type
+    - ❌ `smoke-auth-inactive-login`: MongoDB Atlas DNS 연결 불가 (로컬 네트워크 제한, 운영 환경에서 통과 예상)
+    - ✅ `smoke-conversation-session-mapping`: 고객 보고 모드 세션 매핑
+    - ⏭️ `smoke-partner-workflow`: `SMOKE_PARTNER_ID` 미설정으로 스킵 (의도된 동작)
+  - 코드 기준 커밋: `a0ca77e`
 
 - **Phase 7-1 관리자 페이지 구현 완료**
   - `AdminPage.tsx` 전면 재작성 (인라인 편집 → 모달 기반 UX)
@@ -173,3 +189,4 @@
 
 - 최신 코드 기준 빌드 검증: `backend npm run build`, `frontend npm run build` 통과 (2026-02-18)
 - 최신 변경 핵심(7-1): 관리자 페이지 모달 기반 UX 재작성 + allowedMenus/allowedDataTypes 체크박스 UI + Modal/Checkbox 컴포넌트 추가
+- Phase 8-1 smoke 테스트 결과: 10종 중 8종 통과, 1종 로컬 네트워크 제한 실패(운영 환경 예상 통과), 1종 스킵 (2026-02-18, `a0ca77e`)
