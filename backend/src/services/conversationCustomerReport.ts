@@ -10,8 +10,10 @@ export interface ConversationCustomerRow {
   answerAt: string;
   responseLatencyMs: number | null;
   channel: string;
+  channelName?: string;
   sessionId: string;
   customerId: string;
+  customerName?: string;
   questionCreatorType: string;
   questionCreatorRaw: string;
   questionText: string;
@@ -37,6 +39,15 @@ export interface ConversationCustomerReportResult {
   summary: ConversationCustomerSummary;
   pageSize: number;
   hasMore: boolean;
+}
+
+export interface ConversationReportDataSource {
+  dbName?: string;
+  collections?: {
+    chats?: string;
+    usagelogs?: string;
+    botchats?: string;
+  };
 }
 
 interface ChatMessageDoc extends Document {
@@ -426,7 +437,8 @@ function buildTurns(messages: ChatMessageDoc[], customerId: string): TurnContext
 }
 
 export async function buildConversationCustomerReport(
-  request: QueryRequest
+  request: QueryRequest,
+  dataSource?: ConversationReportDataSource
 ): Promise<ConversationCustomerReportResult> {
   const pageSize = Math.min(request.pageSize ?? 100, env.MAX_EXPORT_ROWS);
   const sortOrder = request.sortOrder ?? "asc";
@@ -436,11 +448,16 @@ export async function buildConversationCustomerReport(
 
   const { start, end } = ensureDateRange(request);
 
-  const prodDb = await getDb("prod");
+  const dbName = dataSource?.dbName?.trim() || "prod";
+  const chatsCollection = dataSource?.collections?.chats?.trim() || "chats";
+  const usageLogsCollection = dataSource?.collections?.usagelogs?.trim() || "usagelogs";
+  const botChatsCollection = dataSource?.collections?.botchats?.trim() || "botchats";
+
+  const prodDb = await getDb(dbName);
   const conversationsMatch = buildConversationsMatch(request, start, end);
 
   const questionMessages = (await prodDb
-    .collection<ChatMessageDoc>("chats")
+    .collection<ChatMessageDoc>(chatsCollection)
     .find(conversationsMatch, {
       projection: {
         _id: 1,
@@ -500,7 +517,7 @@ export async function buildConversationCustomerReport(
   }
 
   const sessionMessages = (await prodDb
-    .collection<ChatMessageDoc>("chats")
+    .collection<ChatMessageDoc>(chatsCollection)
     .find(
       {
         session: { $in: sessionMatchCandidates },
@@ -544,7 +561,7 @@ export async function buildConversationCustomerReport(
   const usageMatch = buildUsageMatch(channels, reportStart, reportEnd);
 
   const usageLogs = (await prodDb
-    .collection<UsageLogDoc>("usagelogs")
+    .collection<UsageLogDoc>(usageLogsCollection)
     .find(usageMatch, {
       projection: {
         _id: 1,
@@ -562,7 +579,7 @@ export async function buildConversationCustomerReport(
     .toArray()) as UsageLogDoc[];
 
   const botChats = (await prodDb
-    .collection<BotChatDoc>("botchats")
+    .collection<BotChatDoc>(botChatsCollection)
     .find(
       {
         channel: { $in: Array.from(channels) },

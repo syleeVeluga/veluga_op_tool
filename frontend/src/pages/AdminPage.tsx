@@ -20,7 +20,8 @@ import { Button, Checkbox, Input, Modal } from '../components/ui'
 const MENU_OPTIONS: { value: string; label: string }[] = [
   { value: 'user-logs', label: '사용자 로그' },
   { value: 'service-logs', label: '서비스 로그' },
-  { value: 'partner-logs', label: '파트너 로그' },
+  { value: 'batch-logs', label: '대량 배치 로그' },
+  { value: 'partner-logs', label: '파트너 로그(호환)' },
   { value: 'admin', label: '관리자' },
 ]
 

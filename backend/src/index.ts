@@ -12,6 +12,12 @@ const app = createApp();
 
 const port = env.PORT;
 
+if (env.batchDbConfigs.length === 0) {
+  console.warn(
+    "[bootstrap] BATCH_DB_CONFIGS is not configured. 대량 배치 로그 대상 DB 목록이 비어 있습니다."
+  );
+}
+
 async function bootstrap(): Promise<void> {
   registerMongoShutdownHooks();
 

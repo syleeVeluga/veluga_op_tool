@@ -95,8 +95,14 @@ export interface PartnerCustomerResolveResponse {
   customers: CustomerSearchItem[]
 }
 
-export interface PartnerConversationWorkflowPayload {
-  partnerId: string
+export interface BatchDbItem {
+  name: string
+  dbName: string
+}
+
+export interface BatchConversationWorkflowPayload {
+  batchDbName: string
+  partnerId?: string
   dateRange: {
     start: string
     end: string
@@ -108,17 +114,22 @@ export interface PartnerConversationWorkflowPayload {
     pauseMs?: number
     maxRetries?: number
   }
+  filters?: {
+    customerIds?: string[]
+    channelIds?: string[]
+  }
   includeTotal?: boolean
   rowLimit?: number
 }
 
-export interface PartnerConversationWorkflowResponse {
+export interface BatchConversationWorkflowResponse {
   rows: Array<Record<string, unknown>>
   pageSize: number
   hasMore: boolean
   total?: number
   meta: {
-    partnerId: string
+    batchDbName: string
+    partnerId?: string
     memberCount: number
     processedChunks: number
     failedChunks: Array<{ chunkId: string; attempts: number; reason: string }>
@@ -283,23 +294,27 @@ export function fetchCustomerChannels(
   )
 }
 
-export function postPartnerConversationWorkflow(
-  payload: PartnerConversationWorkflowPayload,
-): Promise<PartnerConversationWorkflowResponse> {
-  return requestJson<PartnerConversationWorkflowResponse>('/data/query-partner/conversations', {
+export function fetchBatchDbList(): Promise<{ items: BatchDbItem[] }> {
+  return requestJson<{ items: BatchDbItem[] }>('/data/batch-db-list')
+}
+
+export function postBatchConversationWorkflow(
+  payload: BatchConversationWorkflowPayload,
+): Promise<BatchConversationWorkflowResponse> {
+  return requestJson<BatchConversationWorkflowResponse>('/data/query-batch/conversations', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
-export async function exportPartnerConversationFile(
-  payload: PartnerConversationWorkflowPayload,
+export async function exportBatchConversationFile(
+  payload: BatchConversationWorkflowPayload,
   format: 'csv' | 'json',
   options?: { gzip?: boolean },
 ): Promise<ExportFileResult> {
   const gzipQuery = format === 'json' && options?.gzip ? '?gzip=1' : ''
   const response = await fetch(
-    `${API_BASE_URL}/data/query-partner/conversations/export-${format}${gzipQuery}`,
+    `${API_BASE_URL}/data/query-batch/conversations/export-${format}${gzipQuery}`,
     {
       method: 'POST',
       headers: {
@@ -315,7 +330,7 @@ export async function exportPartnerConversationFile(
     throw new Error(message)
   }
 
-  const fallbackName = `partner-export.${format}${format === 'json' && options?.gzip ? '.gz' : ''}`
+  const fallbackName = `batch-export.${format}${format === 'json' && options?.gzip ? '.gz' : ''}`
   const fileName = resolveDownloadFileName(response.headers.get('content-disposition'), fallbackName)
   const mimeType = response.headers.get('content-type') ?? 'application/octet-stream'
   const blob = await response.blob()

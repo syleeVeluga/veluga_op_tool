@@ -1,12 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, MessageSquareText, Building2, UserCog, LogOut } from 'lucide-react'
+import { LayoutDashboard, MessageSquareText, Database, UserCog, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Sidebar() {
   const { authUser, logout } = useAuth()
   const isAdmin = authUser?.role === 'super_admin' || authUser?.role === 'admin'
   const hasPartnerMenuAccess =
-    authUser?.allowedMenus?.includes('partner-logs') ?? isAdmin
+    authUser?.allowedMenus?.includes('batch-logs') ||
+    authUser?.allowedMenus?.includes('partner-logs') ||
+    isAdmin
   const hasPartnerDataAccess =
     authUser?.allowedDataTypes?.includes('conversations') ?? isAdmin
   const canAccessPartnerLogs = hasPartnerMenuAccess && hasPartnerDataAccess
@@ -46,15 +48,15 @@ export function Sidebar() {
 
         {canAccessPartnerLogs && (
           <NavLink
-            to="/partner-logs"
+            to="/batch-logs"
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`
             }
           >
-            <Building2 size={18} />
-            파트너 로그
+            <Database size={18} />
+            대량 배치 로그
           </NavLink>
         )}
 

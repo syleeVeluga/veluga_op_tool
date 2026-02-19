@@ -6,7 +6,7 @@ import { schemaRegistry } from "../config/schema";
 import { env } from "../config/env";
 import { validateDataQueryRequest } from "../middleware/validators";
 import { validateConversationBatchRequest } from "../middleware/validators";
-import { validatePartnerConversationWorkflowRequest } from "../middleware/validators";
+import { validateBatchConversationWorkflowRequest } from "../middleware/validators";
 import { validatePeriodSummaryRequest } from "../middleware/validators";
 import { validateDataTypeSummaryRequest } from "../middleware/validators";
 import {
@@ -19,9 +19,9 @@ import {
   type ConversationBatchRequest,
 } from "../services/conversationBatchQuery";
 import {
-  runPartnerConversationWorkflow,
-  type PartnerConversationWorkflowRequest,
-} from "../services/partnerConversationWorkflow";
+  runBatchConversationWorkflow,
+  type BatchConversationWorkflowRequest,
+} from "../services/batchConversationWorkflow";
 import {
   resolveCustomersByPartnerId,
   searchCustomers,
@@ -47,13 +47,15 @@ import {
 
 const dataRouter = Router();
 
-const PARTNER_CONVERSATION_EXPORT_COLUMNS = [
+const BATCH_CONVERSATION_EXPORT_COLUMNS = [
   "occurredAt",
   "answerAt",
   "responseLatencyMs",
   "channel",
+  "channelName",
   "sessionId",
   "customerId",
+  "customerName",
   "questionCreatorType",
   "questionCreatorRaw",
   "questionText",
@@ -117,6 +119,15 @@ dataRouter.get("/customers/search", async (req, res) => {
   }
 });
 
+dataRouter.get("/data/batch-db-list", (_req, res) => {
+  const items = env.batchDbConfigs.map((item) => ({
+    name: item.name,
+    dbName: item.dbName,
+  }));
+
+  res.status(200).json({ items });
+});
+
 dataRouter.get("/customers/by-partner", async (req, res) => {
   const rawPartnerId =
     typeof req.query.partnerId === "string" ? req.query.partnerId : "";
@@ -178,7 +189,7 @@ dataRouter.get("/customers/channels", async (req, res) => {
 });
 
 dataRouter.post(
-  "/data/query-batch/conversations",
+  "/data/query-batch/channels",
   validateConversationBatchRequest,
   async (_req, res) => {
     const request = res.locals
@@ -198,19 +209,19 @@ dataRouter.post(
 );
 
 dataRouter.post(
-  "/data/query-partner/conversations",
-  validatePartnerConversationWorkflowRequest,
+  "/data/query-batch/conversations",
+  validateBatchConversationWorkflowRequest,
   async (_req, res) => {
     const request = res.locals
-      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+      .batchConversationWorkflowRequest as BatchConversationWorkflowRequest;
 
     try {
-      const result = await runPartnerConversationWorkflow(request);
+      const result = await runBatchConversationWorkflow(request);
       res.status(200).json(result);
     } catch (error) {
       res.status(500).json({
-        error: "partner_workflow_failed",
-        message: "Failed to execute partner conversation workflow",
+        error: "batch_workflow_failed",
+        message: "Failed to execute batch conversation workflow",
         detail: error instanceof Error ? error.message : "unknown error",
       });
     }
@@ -430,24 +441,24 @@ dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) 
 });
 
 dataRouter.post(
-  "/data/query-partner/conversations/export-csv",
-  validatePartnerConversationWorkflowRequest,
+  "/data/query-batch/conversations/export-csv",
+  validateBatchConversationWorkflowRequest,
   async (_req, res) => {
     const request = res.locals
-      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+      .batchConversationWorkflowRequest as BatchConversationWorkflowRequest;
 
     try {
       await runWithExportSemaphore(async () => {
-        const result = await runPartnerConversationWorkflow(request);
+        const result = await runBatchConversationWorkflow(request);
         const columns =
           result.rows.length > 0
             ? Object.keys(result.rows[0])
-            : PARTNER_CONVERSATION_EXPORT_COLUMNS;
+            : BATCH_CONVERSATION_EXPORT_COLUMNS;
 
         await streamCsvExportFromRows(
           {
             dataType: "conversations",
-            customerId: `partner:${request.partnerId}`,
+            customerId: `batch:${request.batchDbName}`,
             dateRange: request.dateRange,
             columns,
             pageSize: result.pageSize,
@@ -460,7 +471,7 @@ dataRouter.post(
       if (!res.headersSent) {
         res.status(500).json({
           error: "export_failed",
-          message: "Failed to export partner conversations CSV",
+          message: "Failed to export batch conversations CSV",
           detail: error instanceof Error ? error.message : "unknown error",
         });
         return;
@@ -472,25 +483,25 @@ dataRouter.post(
 );
 
 dataRouter.post(
-  "/data/query-partner/conversations/export-json",
-  validatePartnerConversationWorkflowRequest,
+  "/data/query-batch/conversations/export-json",
+  validateBatchConversationWorkflowRequest,
   async (req, res) => {
     const request = res.locals
-      .partnerConversationWorkflowRequest as PartnerConversationWorkflowRequest;
+      .batchConversationWorkflowRequest as BatchConversationWorkflowRequest;
     const gzip = parseBooleanFlag(req.query.gzip);
 
     try {
       await runWithExportSemaphore(async () => {
-        const result = await runPartnerConversationWorkflow(request);
+        const result = await runBatchConversationWorkflow(request);
         const columns =
           result.rows.length > 0
             ? Object.keys(result.rows[0])
-            : PARTNER_CONVERSATION_EXPORT_COLUMNS;
+            : BATCH_CONVERSATION_EXPORT_COLUMNS;
 
         await streamJsonExportFromRows(
           {
             dataType: "conversations",
-            customerId: `partner:${request.partnerId}`,
+            customerId: `batch:${request.batchDbName}`,
             dateRange: request.dateRange,
             columns,
             pageSize: result.pageSize,
@@ -504,7 +515,7 @@ dataRouter.post(
       if (!res.headersSent) {
         res.status(500).json({
           error: "export_failed",
-          message: "Failed to export partner conversations JSON",
+          message: "Failed to export batch conversations JSON",
           detail: error instanceof Error ? error.message : "unknown error",
         });
         return;
