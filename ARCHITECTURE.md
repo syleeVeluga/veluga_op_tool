@@ -80,16 +80,19 @@
 | GET | `/health` | 서버 상태 | - | - |
 | GET | `/api/health` | API 상태 | - | - |
 | POST | `/api/auth/login` | 로그인, JWT 발급 | - | - |
-| GET | `/api/me` | 내 정보 조회 | JWT | all |
-| GET | `/api/schema/:dataType` | 스키마 조회 | JWT (Phase 3-7 예정) | dataType 접근 |
+| GET | `/api/auth/me` | 내 정보 조회 | JWT | all |
+| GET | `/api/schema/:dataType` | 스키마 조회 | JWT | dataType 접근 |
 | GET | `/api/customers/search?q=` | 고객 검색 | JWT | all |
+| GET | `/api/customers/by-partner?partnerId=` | 파트너 멤버 확장 조회 | JWT | all |
+| GET | `/api/customers/channels?dataType=&customerId=` | 채널 목록 조회 | JWT | all |
 | POST | `/api/data/query` | 데이터 조회 | JWT | dataType 접근 |
 | POST | `/api/data/export-csv` | CSV 다운로드 | JWT | dataType 접근 |
 | POST | `/api/data/export-json` | JSON 다운로드 | JWT | dataType 접근 |
-| GET | `/api/presets` | 프리셋 목록 | JWT | all |
-| POST | `/api/presets` | 프리셋 저장 | JWT | all |
-| PUT | `/api/presets/:id` | 프리셋 수정 | JWT | owner |
-| DELETE | `/api/presets/:id` | 프리셋 삭제 | JWT | owner |
+| POST | `/api/data/query-batch/conversations` | 대량 배치 대화 조회 | JWT | conversations 접근 |
+| POST | `/api/data/query-batch/conversations/export-csv` | 배치 CSV 다운로드 | JWT | conversations 접근 |
+| POST | `/api/data/query-batch/conversations/export-json` | 배치 JSON 다운로드 | JWT | conversations 접근 |
+| POST | `/api/data/summary/period` | 기간별 집계 요약 | JWT | dataType 접근 |
+| POST | `/api/data/summary/by-data-type` | dataType별 요약 | JWT | dataType 접근 |
 | GET | `/api/admin/users` | 사용자 목록 | JWT | admin |
 | POST | `/api/admin/users` | 사용자 생성 | JWT | admin |
 | PUT | `/api/admin/users/:id` | 사용자 수정 | JWT | admin |
@@ -115,7 +118,7 @@
   "email": "string (unique, 사용자 식별자)",
   "name": "string (optional)",
   "passwordHash": "string (bcrypt)",
-  "role": "admin | operator | viewer",
+  "role": "super_admin | admin | user",
   "allowedMenus": ["dashboard", "json-export", "admin-users"],
   "allowedDataTypes": ["conversations", "api_usage_logs", "event_logs", "error_logs", "billing_logs", "user_activities"],
   "status": "active | inactive",

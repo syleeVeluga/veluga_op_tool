@@ -136,9 +136,8 @@
 - Schema: `GET /api/schema/:dataType`
 - Query: `POST /api/data/query`
 - Batch(대화): `POST /api/data/query-batch/conversations`
-- Partner Workflow: `POST /api/data/query-partner/conversations`
 - Export: `POST /api/data/export-csv`, `POST /api/data/export-json`
-- Partner Export: `POST /api/data/query-partner/conversations/export-csv`, `POST /api/data/query-partner/conversations/export-json?gzip=1`
+- Batch Export: `POST /api/data/query-batch/conversations/export-csv`, `POST /api/data/query-batch/conversations/export-json?gzip=1`
 - Summary: `POST /api/data/summary/period`, `POST /api/data/summary/by-data-type`
 - Customer Search: `GET /api/customers/search?q=`
 - Customer Channels: `GET /api/customers/channels?dataType=&customerId=`

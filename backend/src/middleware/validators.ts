@@ -73,26 +73,6 @@ const conversationBatchRequestSchema = z.object({
     .optional(),
 });
 
-const partnerConversationWorkflowRequestSchema = z.object({
-  partnerId: z.string().trim().min(1),
-  dateRange: z.object({
-    start: z.string().min(1),
-    end: z.string().min(1),
-  }),
-  chunkOptions: z
-    .object({
-      customerBatchSize: z.coerce.number().int().min(1).max(500).optional(),
-      channelChunkSize: z.coerce.number().int().min(1).max(100).optional(),
-      maxWorkers: z.coerce.number().int().min(1).max(2).optional(),
-      pauseMs: z.coerce.number().int().min(0).max(5000).optional(),
-      maxRetries: z.coerce.number().int().min(0).max(5).optional(),
-    })
-    .optional(),
-  filters: z.record(z.string(), queryFilterValueSchema).optional(),
-  includeTotal: z.boolean().optional(),
-  rowLimit: z.coerce.number().int().positive().max(env.MAX_EXPORT_ROWS).optional(),
-});
-
 const batchConversationWorkflowRequestSchema = z.object({
   batchDbName: z.string().trim().min(1),
   partnerId: z.string().trim().min(1).optional(),
@@ -241,37 +221,6 @@ export function validateConversationBatchRequest(
   }
 
   res.locals.conversationBatchRequest = parsed.data;
-  next();
-}
-
-export function validatePartnerConversationWorkflowRequest(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  if (hasUnsafeDollarKey(req.body)) {
-    res.status(400).json({
-      error: "invalid_request",
-      message: "Request contains disallowed key starting with '$'",
-    });
-    return;
-  }
-
-  const parsed = partnerConversationWorkflowRequestSchema.safeParse(req.body);
-
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "invalid_request",
-      message: "Invalid partner workflow request",
-      details: parsed.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    });
-    return;
-  }
-
-  res.locals.partnerConversationWorkflowRequest = parsed.data;
   next();
 }
 
