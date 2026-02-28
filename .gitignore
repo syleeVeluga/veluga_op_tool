@@ -17,3 +17,6 @@ build/
 
 # Runtime profiling reports (environment-specific)
 backend/reports/
+
+# Claude Code local settings
+.claude/
