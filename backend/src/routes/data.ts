@@ -128,6 +128,57 @@ dataRouter.get("/data/batch-db-list", (_req, res) => {
   res.status(200).json({ items });
 });
 
+dataRouter.get("/data/search-batch-users", async (req, res) => {
+  const batchDbName = typeof req.query.batchDbName === "string" ? req.query.batchDbName.trim() : "";
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+  if (!batchDbName) {
+    res.status(400).json({ error: "invalid_request", message: "batchDbName is required" });
+    return;
+  }
+
+  const batchConfig = env.batchDbConfigs.find((item) => item.name === batchDbName);
+  if (!batchConfig) {
+    res.status(400).json({ error: "invalid_request", message: `Unknown batchDbName: ${batchDbName}` });
+    return;
+  }
+
+  try {
+    const { getDbForBatchConfig } = await import("../config/database");
+    const { ObjectId } = await import("mongodb");
+    const db = await getDbForBatchConfig(batchConfig);
+
+    const keyword = q;
+    const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const idCondition = ObjectId.isValid(keyword) ? { _id: new ObjectId(keyword) } : null;
+
+    const docs = await db.collection("users").find(
+      keyword
+        ? { $or: [...(idCondition ? [idCondition] : []), { name: regex }, { email: regex }] }
+        : {},
+      {
+        projection: { _id: 1, name: 1, email: 1 },
+        sort: { createdAt: -1, _id: -1 },
+        limit: 20,
+      }
+    ).toArray();
+
+    const items = docs.map((doc) => {
+      const id = doc._id ? String(doc._id) : "";
+      const email = typeof doc.email === "string" ? doc.email : "";
+      const name = typeof doc.name === "string" && doc.name.trim() ? doc.name : email;
+      return { id, name, email };
+    }).filter((item) => item.id);
+
+    res.status(200).json({ items });
+  } catch (error) {
+    res.status(500).json({
+      error: "search_failed",
+      message: error instanceof Error ? error.message : "Search failed",
+    });
+  }
+});
+
 dataRouter.get("/customers/by-partner", async (req, res) => {
   const rawPartnerId =
     typeof req.query.partnerId === "string" ? req.query.partnerId : "";

@@ -298,6 +298,17 @@ export function fetchBatchDbList(): Promise<{ items: BatchDbItem[] }> {
   return requestJson<{ items: BatchDbItem[] }>('/data/batch-db-list')
 }
 
+export interface BatchUserItem {
+  id: string
+  name: string
+  email: string
+}
+
+export function searchBatchUsers(batchDbName: string, q: string): Promise<{ items: BatchUserItem[] }> {
+  const params = new URLSearchParams({ batchDbName, q })
+  return requestJson<{ items: BatchUserItem[] }>(`/data/search-batch-users?${params}`)
+}
+
 export function postBatchConversationWorkflow(
   payload: BatchConversationWorkflowPayload,
 ): Promise<BatchConversationWorkflowResponse> {

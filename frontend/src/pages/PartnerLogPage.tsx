@@ -5,7 +5,9 @@ import {
   fetchBatchDbList,
   postBatchConversationWorkflow,
   resolveCustomersByPartnerId,
+  searchBatchUsers,
   type BatchConversationWorkflowResponse,
+  type BatchUserItem,
 } from '../lib/api'
 import {
   toDatetimeLocalValue,
@@ -73,6 +75,10 @@ export function BatchLogPage() {
   const [partnerMemberCount, setPartnerMemberCount] = useState<number | null>(null)
   const [partnerResolveLoading, setPartnerResolveLoading] = useState(false)
 
+  const [partnerSearchQuery, setPartnerSearchQuery] = useState('')
+  const [partnerSearchResults, setPartnerSearchResults] = useState<BatchUserItem[]>([])
+  const [partnerSearchLoading, setPartnerSearchLoading] = useState(false)
+
   useEffect(() => {
     const load = async () => {
       setBatchDbLoading(true)
@@ -106,6 +112,29 @@ export function BatchLogPage() {
 
     return [...ordered, ...extras]
   }, [result?.rows])
+
+  const onSearchPartner = async () => {
+    if (!batchDbName) {
+      setError('먼저 배치 DB를 선택해 주세요.')
+      return
+    }
+    setPartnerSearchLoading(true)
+    setPartnerSearchResults([])
+    try {
+      const result = await searchBatchUsers(batchDbName, partnerSearchQuery)
+      setPartnerSearchResults(result.items)
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : '파트너 검색에 실패했습니다.')
+    } finally {
+      setPartnerSearchLoading(false)
+    }
+  }
+
+  const onSelectPartner = (item: BatchUserItem) => {
+    setPartnerId(item.id)
+    setPartnerSearchQuery(item.name || item.email)
+    setPartnerSearchResults([])
+  }
 
   const onResolvePartner = async () => {
     const normalizedPartnerId = partnerId.trim()
@@ -259,11 +288,40 @@ export function BatchLogPage() {
           </label>
 
           <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-slate-700">파트너 검색 (선택)</span>
+            <div className="flex gap-1">
+              <Input
+                value={partnerSearchQuery}
+                onChange={(event) => setPartnerSearchQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void onSearchPartner() } }}
+                placeholder="이름 또는 이메일로 검색"
+                disabled={!batchDbName}
+              />
+              <Button size="sm" onClick={onSearchPartner} disabled={partnerSearchLoading || !batchDbName}>
+                {partnerSearchLoading ? '...' : '검색'}
+              </Button>
+            </div>
+            {partnerSearchResults.length > 0 && (
+              <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white text-xs shadow">
+                {partnerSearchResults.map((item) => (
+                  <li
+                    key={item.id}
+                    className="cursor-pointer px-3 py-2 hover:bg-slate-100"
+                    onClick={() => onSelectPartner(item)}
+                  >
+                    {item.name} <span className="text-slate-400">{item.email}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </label>
+
+          <label className="block">
             <span className="mb-1 block text-xs font-semibold text-slate-700">파트너 ID (선택)</span>
             <Input
               value={partnerId}
               onChange={(event) => setPartnerId(event.target.value)}
-              placeholder="입력 시 해당 파트너 멤버 범위로 제한"
+              placeholder="검색 후 선택하거나 직접 입력"
             />
           </label>
 
