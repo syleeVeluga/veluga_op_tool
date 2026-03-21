@@ -5,6 +5,7 @@ import { z } from "zod";
 export interface BatchDbConfig {
   name: string;
   dbName: string;
+  uri?: string;
   collections: {
     chats: string;
     usagelogs: string;
@@ -43,6 +44,9 @@ function parseBatchDbConfigs(raw: string | undefined): BatchDbConfig[] {
       const candidate = item as Record<string, unknown>;
       const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
       const dbName = typeof candidate.dbName === "string" ? candidate.dbName.trim() : "";
+      const uri = typeof candidate.uri === "string" && candidate.uri.trim().length > 0
+        ? candidate.uri.trim()
+        : undefined;
       const collectionsCandidate =
         candidate.collections && typeof candidate.collections === "object"
           ? (candidate.collections as Record<string, unknown>)
@@ -55,6 +59,7 @@ function parseBatchDbConfigs(raw: string | undefined): BatchDbConfig[] {
       result.push({
         name,
         dbName,
+        uri,
         collections: {
           chats:
             typeof collectionsCandidate.chats === "string" && collectionsCandidate.chats.trim().length > 0

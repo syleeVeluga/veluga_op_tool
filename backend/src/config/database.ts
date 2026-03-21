@@ -1,9 +1,13 @@
 import { Db, MongoClient, ReadPreference } from "mongodb";
-import { env } from "./env";
+import { env, type BatchDbConfig } from "./env";
 
 let mongoClient: MongoClient | null = null;
 let connectPromise: Promise<MongoClient> | null = null;
 let shutdownHooksRegistered = false;
+
+// Extra clients for batch DBs that have their own URI (different Atlas cluster)
+const extraClients = new Map<string, MongoClient>();
+const extraConnectPromises = new Map<string, Promise<MongoClient>>();
 
 const mongoOptions = {
   appName: "veluga-ops-tool-backend",
@@ -60,6 +64,52 @@ export async function getMongoClient(): Promise<MongoClient> {
   return connectToMongo();
 }
 
+async function getClientForUri(uri: string): Promise<MongoClient> {
+  const cached = extraClients.get(uri);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = extraConnectPromises.get(uri);
+  if (pending) {
+    return pending;
+  }
+
+  const nextClient = new MongoClient(uri, mongoOptions);
+  const promise = nextClient
+    .connect()
+    .then((connectedClient) => {
+      extraClients.set(uri, connectedClient);
+      extraConnectPromises.delete(uri);
+      return connectedClient;
+    })
+    .catch(async (error: unknown) => {
+      extraConnectPromises.delete(uri);
+      try {
+        await nextClient.close();
+      } catch {
+      }
+      throw error;
+    });
+
+  extraConnectPromises.set(uri, promise);
+  return promise;
+}
+
+export async function getDbForBatchConfig(batchConfig: BatchDbConfig): Promise<Db> {
+  if (batchConfig.uri) {
+    const client = await getClientForUri(batchConfig.uri);
+    return client.db(batchConfig.dbName);
+  }
+
+  return getDb(batchConfig.dbName);
+}
+
+export async function getDbByUri(uri: string, dbName: string): Promise<Db> {
+  const client = await getClientForUri(uri);
+  return client.db(dbName);
+}
+
 export async function getDb(dbName: string = env.MONGODB_DB_NAME): Promise<Db> {
   const client = await getMongoClient();
   return client.db(dbName);
@@ -92,13 +142,19 @@ export async function closeMongoConnection(): Promise<void> {
     await connectPromise.catch(() => undefined);
   }
 
-  if (!mongoClient) {
-    return;
+  if (mongoClient) {
+    const clientToClose = mongoClient;
+    mongoClient = null;
+    await clientToClose.close();
   }
 
-  const clientToClose = mongoClient;
-  mongoClient = null;
-  await clientToClose.close();
+  // Close extra clients for batch DBs on different clusters
+  await Promise.all([
+    ...Array.from(extraConnectPromises.values()).map((p) => p.catch(() => undefined)),
+    ...Array.from(extraClients.values()).map((c) => c.close().catch(() => undefined)),
+  ]);
+  extraConnectPromises.clear();
+  extraClients.clear();
 }
 
 export function getMongoConnectionStatus(): {

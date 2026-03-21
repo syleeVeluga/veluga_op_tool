@@ -1,5 +1,5 @@
 import { ObjectId, ReadPreference } from "mongodb";
-import { getDb } from "../config/database";
+import { getDbForBatchConfig } from "../config/database";
 import { env, type BatchDbConfig } from "../config/env";
 import {
   buildConversationCustomerReport,
@@ -230,7 +230,7 @@ async function resolveCustomerScope(
     };
   }
 
-  const batchDb = await getDb(batchConfig.dbName);
+  const batchDb = await getDbForBatchConfig(batchConfig);
   const channelIds = (request.filters?.channelIds ?? [])
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
@@ -274,7 +274,7 @@ async function listBatchCustomerChannels(
   end: Date,
   request: BatchConversationWorkflowRequest
 ): Promise<string[]> {
-  const batchDb = await getDb(batchConfig.dbName);
+  const batchDb = await getDbForBatchConfig(batchConfig);
 
   const match: Record<string, unknown> = {
     creator: {
@@ -329,6 +329,7 @@ async function runTaskWithRetry(
     try {
       const report = await buildConversationCustomerReport(task.request, {
         dbName: batchConfig.dbName,
+        uri: batchConfig.uri,
         collections: {
           chats: batchConfig.collections.chats,
           usagelogs: batchConfig.collections.usagelogs,
@@ -364,7 +365,7 @@ async function enrichRows(
     return rows;
   }
 
-  const prodDb = await getDb("prod");
+  const prodDb = await getDbForBatchConfig(batchConfig);
   const customerIds = Array.from(new Set(rows.map((row) => row.customerId).filter(Boolean)));
   const channelIds = Array.from(new Set(rows.map((row) => row.channel).filter(Boolean)));
 

@@ -1,5 +1,5 @@
 import { ObjectId, ReadPreference, type Document } from "mongodb";
-import { getDb } from "../config/database";
+import { getDb, getDbByUri } from "../config/database";
 import { env } from "../config/env";
 import type { QueryRequest } from "./queryBuilder";
 
@@ -43,6 +43,7 @@ export interface ConversationCustomerReportResult {
 
 export interface ConversationReportDataSource {
   dbName?: string;
+  uri?: string;
   collections?: {
     chats?: string;
     usagelogs?: string;
@@ -453,7 +454,9 @@ export async function buildConversationCustomerReport(
   const usageLogsCollection = dataSource?.collections?.usagelogs?.trim() || "usagelogs";
   const botChatsCollection = dataSource?.collections?.botchats?.trim() || "botchats";
 
-  const prodDb = await getDb(dbName);
+  const prodDb = dataSource?.uri
+    ? await getDbByUri(dataSource.uri, dbName)
+    : await getDb(dbName);
   const conversationsMatch = buildConversationsMatch(request, start, end);
 
   const questionMessages = (await prodDb
