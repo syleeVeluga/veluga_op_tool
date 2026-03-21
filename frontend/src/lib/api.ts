@@ -49,6 +49,7 @@ export interface QueryRequestPayload {
   reportMode?: 'default' | 'customer'
   sortOrder?: 'asc' | 'desc'
   matchWindowSec?: number
+  batchDbName?: string
 }
 
 export interface ExportFileResult {

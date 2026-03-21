@@ -39,6 +39,7 @@ const queryRequestSchema = z
     reportMode: z.enum(["default", "customer"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
     matchWindowSec: z.coerce.number().int().min(1).max(300).optional(),
+    batchDbName: z.string().trim().min(1).optional(),
     cursor: z
       .object({
         afterTs: z.string().min(1),

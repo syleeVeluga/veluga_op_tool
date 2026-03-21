@@ -36,6 +36,7 @@ export interface QueryRequest {
   reportMode?: "default" | "customer";
   sortOrder?: "asc" | "desc";
   matchWindowSec?: number;
+  batchDbName?: string;
 }
 
 function assertNonEmptyString(value: string, fieldName: string): void {

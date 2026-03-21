@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { finished } from "node:stream/promises";
 import { createGzip } from "node:zlib";
-import { ReadPreference, type Document } from "mongodb";
+import { ReadPreference, type Db, type Document } from "mongodb";
 import { env } from "../config/env";
 import { getDb } from "../config/database";
 import { schemaRegistry } from "../config/schema";
@@ -134,9 +134,9 @@ function createExportTarget(res: Response, gzipEnabled: boolean): ExportTarget {
   };
 }
 
-async function getExportCursor(request: QueryRequest) {
+async function getExportCursor(request: QueryRequest, dbOverride?: Db) {
   const schema = schemaRegistry[request.dataType];
-  const db = await getDb(schema.dbName);
+  const db = dbOverride ?? await getDb(schema.dbName);
   const exportLimit = normalizeExportLimit(request);
 
   const pipeline = buildAggregationPipeline({
@@ -215,8 +215,8 @@ export async function streamJsonExportFromRows(
   await target.end();
 }
 
-export async function streamCsvExport(request: QueryRequest, res: Response): Promise<void> {
-  const { cursor, columns } = await getExportCursor(request);
+export async function streamCsvExport(request: QueryRequest, res: Response, dbOverride?: Db): Promise<void> {
+  const { cursor, columns } = await getExportCursor(request, dbOverride);
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename=\"${formatFileName(request.dataType, "csv")}\"`);
@@ -236,9 +236,10 @@ export async function streamCsvExport(request: QueryRequest, res: Response): Pro
 export async function streamJsonExport(
   request: QueryRequest,
   res: Response,
-  options?: { gzip?: boolean }
+  options?: { gzip?: boolean },
+  dbOverride?: Db
 ): Promise<void> {
-  const { cursor, columns } = await getExportCursor(request);
+  const { cursor, columns } = await getExportCursor(request, dbOverride);
   const gzipEnabled = options?.gzip === true;
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");

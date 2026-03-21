@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  type BatchDbItem,
   type CustomerChannelItem,
   type CustomerSearchItem,
   type DataType,
   exportDataFile,
+  fetchBatchDbList,
   fetchSchema,
   fetchCustomerChannels,
   postDataQuery,
@@ -120,6 +122,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [exportNotice, setExportNotice] = useState<string | null>(null)
   const [jsonGzipEnabled, setJsonGzipEnabled] = useState(false)
   const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
+  const [batchDbList, setBatchDbList] = useState<BatchDbItem[]>([])
+  const [selectedBatchDb, setSelectedBatchDb] = useState('')
 
   const isServiceMode = mode === 'service'
   const selectableDataTypes = useMemo<DataType[]>(() => {
@@ -280,6 +284,12 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     saveStoredFilterState(dataType, customerId, sanitized)
   }, [customerId, dataType, filterInputs, schema])
 
+  // Load batch DB list
+  useEffect(() => {
+    void fetchBatchDbList().then(({ items }) => {
+      setBatchDbList(items)
+    }).catch(() => {})
+  }, [])
 
   const buildCurrentQueryPayload = (
     normalizedCustomerId: string,
@@ -300,6 +310,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
       pageSize,
       includeTotal,
       sortOrder,
+      ...(selectedBatchDb ? { batchDbName: selectedBatchDb } : {}),
       ...(isServiceMode
         ? {
             includeSessionMessages: true,
@@ -587,6 +598,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     setExportNotice('초기화가 완료되었습니다.')
     setJsonGzipEnabled(false)
     setReportSummary(null)
+    setSelectedBatchDb('')
   }
 
   return (
@@ -633,6 +645,25 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                     ))}
                   </ul>
                 )}
+              </label>
+            )}
+
+            {batchDbList.length > 0 && (
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-slate-700">조회 DB</span>
+                <select
+                  className="w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900"
+                  value={selectedBatchDb}
+                  onChange={(e) => {
+                    setSelectedBatchDb(e.target.value)
+                    setRows([])
+                  }}
+                >
+                  <option value="">veluga-app (기본)</option>
+                  {batchDbList.map((item) => (
+                    <option key={item.name} value={item.name}>{item.name}</option>
+                  ))}
+                </select>
               </label>
             )}
 

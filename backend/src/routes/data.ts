@@ -1,6 +1,7 @@
 import { Router } from "express";
+import type { Db } from "mongodb";
 import { ReadPreference } from "mongodb";
-import { getDb } from "../config/database";
+import { getDb, getDbForBatchConfig } from "../config/database";
 import { isDataType, supportedDataTypes } from "../config/schema";
 import { schemaRegistry } from "../config/schema";
 import { env } from "../config/env";
@@ -36,7 +37,7 @@ import {
   getDataTypeSummary,
   type DataTypeSummaryRequest,
 } from "../services/dataTypeSummary";
-import { buildConversationCustomerReport } from "../services/conversationCustomerReport";
+import { buildConversationCustomerReport, type ConversationReportDataSource } from "../services/conversationCustomerReport";
 import {
   runWithExportSemaphore,
   streamCsvExport,
@@ -320,13 +321,26 @@ dataRouter.post(
 dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
   const request = res.locals.queryRequest as QueryRequest;
 
+  let batchConfig: ReturnType<typeof env.batchDbConfigs.find> = undefined;
+  if (request.batchDbName) {
+    batchConfig = env.batchDbConfigs.find((c) => c.name === request.batchDbName);
+    if (!batchConfig) {
+      res.status(400).json({ error: "invalid_request", message: `Unknown batchDbName: ${request.batchDbName}` });
+      return;
+    }
+  }
+
   if (
     request.dataType === "conversations" &&
     request.includeSessionMessages === true &&
     request.reportMode === "customer"
   ) {
+    const dataSource: ConversationReportDataSource | undefined = batchConfig
+      ? { dbName: batchConfig.dbName, uri: batchConfig.uri, collections: batchConfig.collections }
+      : undefined;
+
     try {
-      const report = await buildConversationCustomerReport(request);
+      const report = await buildConversationCustomerReport(request, dataSource);
       res.status(200).json(report);
     } catch (error) {
       res.status(500).json({
@@ -342,13 +356,16 @@ dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
   const pipeline = buildAggregationPipeline(request);
   const pageSize = Math.min(request.pageSize ?? 100, env.MAX_EXPORT_ROWS);
 
-  console.log("[data/query] dataType=%s collection=%s.%s customerId=%s customerIds=%s",
+  console.log("[data/query] dataType=%s collection=%s.%s customerId=%s customerIds=%s batchDb=%s",
     request.dataType, schema.dbName, schema.collection,
-    request.customerId ?? "-", request.customerIds?.join(",") ?? "-");
+    request.customerId ?? "-", request.customerIds?.join(",") ?? "-",
+    request.batchDbName ?? "-");
   console.log("[data/query] pipeline=%s", JSON.stringify(pipeline));
 
   try {
-    const db = await getDb(schema.dbName);
+    const db: Db = batchConfig
+      ? await getDbForBatchConfig(batchConfig)
+      : await getDb(schema.dbName);
     const rows = await db
       .collection(schema.collection)
       .aggregate(pipeline, {
@@ -422,6 +439,15 @@ dataRouter.post("/data/query", validateDataQueryRequest, async (_req, res) => {
 dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) => {
   const request = res.locals.queryRequest as QueryRequest;
 
+  let batchConfig: ReturnType<typeof env.batchDbConfigs.find> = undefined;
+  if (request.batchDbName) {
+    batchConfig = env.batchDbConfigs.find((c) => c.name === request.batchDbName);
+    if (!batchConfig) {
+      res.status(400).json({ error: "invalid_request", message: `Unknown batchDbName: ${request.batchDbName}` });
+      return;
+    }
+  }
+
   try {
     await runWithExportSemaphore(async () => {
       if (
@@ -429,7 +455,10 @@ dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) 
         request.includeSessionMessages === true &&
         request.reportMode === "customer"
       ) {
-        const report = await buildConversationCustomerReport(request);
+        const dataSource: ConversationReportDataSource | undefined = batchConfig
+          ? { dbName: batchConfig.dbName, uri: batchConfig.uri, collections: batchConfig.collections }
+          : undefined;
+        const report = await buildConversationCustomerReport(request, dataSource);
         await streamCsvExportFromRows(
           request,
           report.rows.map((row) => ({ ...row })),
@@ -438,7 +467,8 @@ dataRouter.post("/data/export-csv", validateDataQueryRequest, async (_req, res) 
         return;
       }
 
-      await streamCsvExport(request, res);
+      const dbOverride: Db | undefined = batchConfig ? await getDbForBatchConfig(batchConfig) : undefined;
+      await streamCsvExport(request, res, dbOverride);
     });
   } catch (error) {
     if (!res.headersSent) {
@@ -458,6 +488,15 @@ dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) 
   const request = res.locals.queryRequest as QueryRequest;
   const gzip = parseBooleanFlag(req.query.gzip);
 
+  let batchConfig: ReturnType<typeof env.batchDbConfigs.find> = undefined;
+  if (request.batchDbName) {
+    batchConfig = env.batchDbConfigs.find((c) => c.name === request.batchDbName);
+    if (!batchConfig) {
+      res.status(400).json({ error: "invalid_request", message: `Unknown batchDbName: ${request.batchDbName}` });
+      return;
+    }
+  }
+
   try {
     await runWithExportSemaphore(async () => {
       if (
@@ -465,7 +504,10 @@ dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) 
         request.includeSessionMessages === true &&
         request.reportMode === "customer"
       ) {
-        const report = await buildConversationCustomerReport(request);
+        const dataSource: ConversationReportDataSource | undefined = batchConfig
+          ? { dbName: batchConfig.dbName, uri: batchConfig.uri, collections: batchConfig.collections }
+          : undefined;
+        const report = await buildConversationCustomerReport(request, dataSource);
         await streamJsonExportFromRows(
           request,
           report.rows.map((row) => ({ ...row })),
@@ -475,7 +517,8 @@ dataRouter.post("/data/export-json", validateDataQueryRequest, async (req, res) 
         return;
       }
 
-      await streamJsonExport(request, res, { gzip });
+      const dbOverride: Db | undefined = batchConfig ? await getDbForBatchConfig(batchConfig) : undefined;
+      await streamJsonExport(request, res, { gzip }, dbOverride);
     });
   } catch (error) {
     if (!res.headersSent) {
