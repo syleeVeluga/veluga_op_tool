@@ -215,8 +215,8 @@ export async function streamJsonExportFromRows(
   await target.end();
 }
 
-export async function streamCsvExport(request: QueryRequest, res: Response, dbOverride?: Db): Promise<void> {
-  const { cursor, columns } = await getExportCursor(request, dbOverride);
+export async function streamCsvExport(request: QueryRequest, res: Response, options?: { dbOverride?: Db }): Promise<void> {
+  const { cursor, columns } = await getExportCursor(request, options?.dbOverride);
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename=\"${formatFileName(request.dataType, "csv")}\"`);
@@ -236,10 +236,9 @@ export async function streamCsvExport(request: QueryRequest, res: Response, dbOv
 export async function streamJsonExport(
   request: QueryRequest,
   res: Response,
-  options?: { gzip?: boolean },
-  dbOverride?: Db
+  options?: { gzip?: boolean; dbOverride?: Db }
 ): Promise<void> {
-  const { cursor, columns } = await getExportCursor(request, dbOverride);
+  const { cursor, columns } = await getExportCursor(request, options?.dbOverride);
   const gzipEnabled = options?.gzip === true;
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");

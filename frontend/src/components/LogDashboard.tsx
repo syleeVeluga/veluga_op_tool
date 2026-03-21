@@ -284,7 +284,6 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     saveStoredFilterState(dataType, customerId, sanitized)
   }, [customerId, dataType, filterInputs, schema])
 
-  // Load batch DB list
   useEffect(() => {
     void fetchBatchDbList().then(({ items }) => {
       setBatchDbList(items)
