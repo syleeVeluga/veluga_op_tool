@@ -346,6 +346,10 @@ function billingLookupPipeline(): Document[] {
             $ifNull: ["$planId", ""],
           },
         },
+      },
+    },
+    {
+      $addFields: {
         planName: {
           $ifNull: [
             "$planMeta.name",
