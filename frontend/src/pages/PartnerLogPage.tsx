@@ -80,7 +80,7 @@ export function BatchLogPage() {
         const response = await fetchBatchDbList()
         setBatchDbItems(response.items)
         if (!batchDbName && response.items.length > 0) {
-          setBatchDbName(response.items[0].dbName)
+          setBatchDbName(response.items[0].name)
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : '배치 DB 목록 조회에 실패했습니다.')
@@ -250,7 +250,7 @@ export function BatchLogPage() {
                 <option value="">설정된 배치 DB가 없습니다</option>
               ) : (
                 batchDbItems.map((item) => (
-                  <option key={item.dbName} value={item.dbName}>
+                  <option key={item.name} value={item.name}>
                     {item.name} ({item.dbName})
                   </option>
                 ))

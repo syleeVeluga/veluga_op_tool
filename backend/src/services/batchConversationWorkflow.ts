@@ -196,7 +196,7 @@ function getBatchDbConfig(batchDbName: string): BatchDbConfig {
     throw new Error("batchDbName is required");
   }
 
-  const found = env.batchDbConfigs.find((item) => item.dbName === dbName);
+  const found = env.batchDbConfigs.find((item) => item.name === dbName);
   if (!found) {
     throw new Error(`Unknown batchDbName: ${dbName}`);
   }
