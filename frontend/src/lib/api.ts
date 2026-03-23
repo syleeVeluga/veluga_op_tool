@@ -52,11 +52,6 @@ export interface QueryRequestPayload {
   batchDbName?: string
 }
 
-export interface ExportFileResult {
-  blob: Blob
-  fileName: string
-  mimeType: string
-}
 
 export interface QueryResponse {
   rows: Array<Record<string, unknown>>
@@ -189,27 +184,6 @@ function normalizeApiBaseUrl(rawBaseUrl: string | undefined): string {
 
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
-function resolveDownloadFileName(contentDisposition: string | null, fallbackName: string): string {
-  if (!contentDisposition) {
-    return fallbackName
-  }
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-  if (utf8Match?.[1]) {
-    try {
-      return decodeURIComponent(utf8Match[1])
-    } catch {
-      return utf8Match[1]
-    }
-  }
-
-  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
-  if (plainMatch?.[1]) {
-    return plainMatch[1]
-  }
-
-  return fallbackName
-}
 
 async function requestJson<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -240,38 +214,6 @@ export function postDataQuery(payload: QueryRequestPayload): Promise<QueryRespon
     method: 'POST',
     body: JSON.stringify(payload),
   })
-}
-
-export async function exportDataFile(
-  payload: QueryRequestPayload,
-  format: 'csv' | 'json',
-  options?: { gzip?: boolean },
-): Promise<ExportFileResult> {
-  const gzipQuery = format === 'json' && options?.gzip ? '?gzip=1' : ''
-  const response = await fetch(`${API_BASE_URL}/data/export-${format}${gzipQuery}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    const message = body?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
-  }
-
-  const fallbackName = `export.${format}${format === 'json' && options?.gzip ? '.gz' : ''}`
-  const fileName = resolveDownloadFileName(response.headers.get('content-disposition'), fallbackName)
-  const mimeType = response.headers.get('content-type') ?? 'application/octet-stream'
-  const blob = await response.blob()
-
-  return {
-    blob,
-    fileName,
-    mimeType,
-  }
 }
 
 export function searchCustomers(query: string): Promise<CustomerSearchResponse> {
@@ -317,41 +259,6 @@ export function postBatchConversationWorkflow(
     method: 'POST',
     body: JSON.stringify(payload),
   })
-}
-
-export async function exportBatchConversationFile(
-  payload: BatchConversationWorkflowPayload,
-  format: 'csv' | 'json',
-  options?: { gzip?: boolean },
-): Promise<ExportFileResult> {
-  const gzipQuery = format === 'json' && options?.gzip ? '?gzip=1' : ''
-  const response = await fetch(
-    `${API_BASE_URL}/data/query-batch/conversations/export-${format}${gzipQuery}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  )
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    const message = body?.message ?? `Request failed (${response.status})`
-    throw new Error(message)
-  }
-
-  const fallbackName = `batch-export.${format}${format === 'json' && options?.gzip ? '.gz' : ''}`
-  const fileName = resolveDownloadFileName(response.headers.get('content-disposition'), fallbackName)
-  const mimeType = response.headers.get('content-type') ?? 'application/octet-stream'
-  const blob = await response.blob()
-
-  return {
-    blob,
-    fileName,
-    mimeType,
-  }
 }
 
 export function login(payload: { email: string; password: string }): Promise<{ token: string; user: AuthUser }> {

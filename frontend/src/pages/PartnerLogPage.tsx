@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
-  exportBatchConversationFile,
   fetchBatchDbList,
   postBatchConversationWorkflow,
   resolveCustomersByPartnerId,
@@ -10,9 +9,10 @@ import {
   type BatchUserItem,
 } from '../lib/api'
 import {
+  downloadRowsAsCsv,
+  downloadRowsAsJson,
   toDatetimeLocalValue,
   toIsoString,
-  triggerBlobDownload,
 } from '../lib/utils'
 import { Button, DataTable, Input } from '../components/ui'
 
@@ -69,7 +69,6 @@ export function BatchLogPage() {
   const [error, setError] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
-  const [jsonGzipEnabled, setJsonGzipEnabled] = useState(false)
   const [result, setResult] = useState<BatchConversationWorkflowResponse | null>(null)
 
   const [partnerMemberCount, setPartnerMemberCount] = useState<number | null>(null)
@@ -85,8 +84,8 @@ export function BatchLogPage() {
       try {
         const response = await fetchBatchDbList()
         setBatchDbItems(response.items)
-        if (!batchDbName && response.items.length > 0) {
-          setBatchDbName(response.items[0].name)
+        if (response.items.length > 0) {
+          setBatchDbName((current) => current || response.items[0].name)
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : '배치 DB 목록 조회에 실패했습니다.')
@@ -217,38 +216,13 @@ export function BatchLogPage() {
     setExportNotice(null)
 
     try {
-      const customerIds = parseCsvIds(customerIdsInput)
-      const channelIds = parseCsvIds(channelIdsInput)
+      if (format === 'csv') {
+        downloadRowsAsCsv('batch-conversations', rows, resultColumns)
+      } else {
+        downloadRowsAsJson('batch-conversations', rows, resultColumns)
+      }
 
-      const response = await exportBatchConversationFile(
-        {
-          batchDbName: batchDbName.trim(),
-          partnerId: partnerId.trim() || undefined,
-          dateRange: {
-            start: toIsoString(startAt),
-            end: toIsoString(endAt),
-          },
-          chunkOptions: {
-            customerBatchSize,
-            channelChunkSize,
-            maxWorkers,
-            pauseMs,
-            maxRetries,
-          },
-          filters: {
-            customerIds: customerIds.length > 0 ? customerIds : undefined,
-            channelIds: channelIds.length > 0 ? channelIds : undefined,
-          },
-          rowLimit,
-          includeTotal,
-        },
-        format,
-        { gzip: format === 'json' ? jsonGzipEnabled : false },
-      )
-      triggerBlobDownload(response.blob, response.fileName)
-
-      const label = format === 'json' && jsonGzipEnabled ? 'JSON(gzip)' : format.toUpperCase()
-      setExportNotice(`${label} 다운로드를 시작했습니다.`)
+      setExportNotice(`${format.toUpperCase()} 다운로드를 시작했습니다.`)
     } catch (exportError) {
       setExportNotice(exportError instanceof Error ? exportError.message : '파일 내보내기에 실패했습니다.')
     } finally {
@@ -425,17 +399,8 @@ export function BatchLogPage() {
                 void onExportClick('json')
               }}
             >
-              {exportLoading ? '내보내는 중...' : jsonGzipEnabled ? 'JSON 다운로드(.gz)' : 'JSON 다운로드'}
+              {exportLoading ? '내보내는 중...' : 'JSON 다운로드'}
             </Button>
-            <label className="flex items-center gap-1 text-xs text-slate-600">
-              <input
-                type="checkbox"
-                checked={jsonGzipEnabled}
-                onChange={(event) => setJsonGzipEnabled(event.target.checked)}
-                disabled={exportLoading}
-              />
-              JSON 압축(gzip)
-            </label>
           </div>
         </div>
 

@@ -5,12 +5,10 @@ import {
   type CustomerChannelItem,
   type CustomerSearchItem,
   type DataType,
-  exportDataFile,
   fetchBatchDbList,
   fetchSchema,
   fetchCustomerChannels,
   postDataQuery,
-  type QueryRequestPayload,
   searchCustomers,
   type DataTypeSchema,
 } from '../lib/api'
@@ -20,7 +18,8 @@ import {
     asRangeValue, 
     toIsoString, 
     buildFilters, 
-    triggerBlobDownload,
+  downloadRowsAsCsv,
+  downloadRowsAsJson,
 } from '../lib/utils'
 import { 
   clearStoredDashboardState,
@@ -112,7 +111,6 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([])
 
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([])
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [total, setTotal] = useState<number | undefined>(undefined)
   const [hasMore, setHasMore] = useState(false)
   const [queryLoading, setQueryLoading] = useState(false)
@@ -120,7 +118,6 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [exportLoading, setExportLoading] = useState(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
-  const [jsonGzipEnabled, setJsonGzipEnabled] = useState(false)
   const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
   const [batchDbList, setBatchDbList] = useState<BatchDbItem[]>([])
   const [selectedBatchDb, setSelectedBatchDb] = useState('')
@@ -293,7 +290,7 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
   const buildCurrentQueryPayload = (
     normalizedCustomerId: string,
     overrideFilterInputs?: FilterInputState,
-  ): QueryRequestPayload => {
+  ) => {
     const requestStart = toIsoString(startAt)
     const requestEnd = toIsoString(endAt)
 
@@ -333,41 +330,17 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
       return
     }
 
-    let normalizedCustomerId = customerId.trim()
-
-    if (!normalizedCustomerId) {
-      try {
-        normalizedCustomerId = (await resolveCustomerIdFromInputs()) ?? ''
-      } catch (error) {
-        const message = error instanceof Error ? error.message : '사용자명 기반 ID 확인에 실패했습니다.'
-        setExportNotice(message)
-        setCustomerError(message)
-        return
-      }
-    }
-
-    if (!normalizedCustomerId) {
-      const message = '고객 ID를 입력해 주세요.'
-      setExportNotice(message)
-      setCustomerError(message)
-      return
-    }
-
     setExportLoading(true)
     setExportNotice(null)
 
     try {
-      const payload = buildCurrentQueryPayload(normalizedCustomerId)
-      const file = await exportDataFile(payload, format, {
-        gzip: format === 'json' ? jsonGzipEnabled : false,
-      })
-      triggerBlobDownload(file.blob, file.fileName)
-
-      setExportNotice(
-        format === 'json' && jsonGzipEnabled
-          ? `${formatLabel}(gzip) 파일 다운로드를 시작했습니다.`
-          : `${formatLabel} 파일 다운로드를 시작했습니다.`,
-      )
+      if (format === 'csv') {
+        downloadRowsAsCsv(dataType, rows, resultColumns)
+        setExportNotice(`${formatLabel} 파일 다운로드를 시작했습니다.`)
+      } else {
+        downloadRowsAsJson(dataType, rows, resultColumns)
+        setExportNotice(`${formatLabel} 파일 다운로드를 시작했습니다.`)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : `${formatLabel} 내보내기에 실패했습니다. 다시 시도해 주세요.`
       setExportNotice(message)
@@ -595,7 +568,6 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
     setQueryHistory([])
     setExportLoading(false)
     setExportNotice('초기화가 완료되었습니다.')
-    setJsonGzipEnabled(false)
     setReportSummary(null)
     setSelectedBatchDb('')
   }
@@ -985,17 +957,8 @@ export function LogDashboard({ mode = 'default' }: LogDashboardProps) {
                   void onExportClick('json')
                 }}
               >
-                {jsonGzipEnabled ? 'JSON 다운로드(.gz)' : 'JSON 다운로드'}
+                JSON 다운로드
               </Button>
-              <label className="flex items-center gap-1 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={jsonGzipEnabled}
-                  onChange={(event) => setJsonGzipEnabled(event.target.checked)}
-                  disabled={exportLoading}
-                />
-                JSON 압축(gzip)
-              </label>
               <div className="text-xs text-slate-600">
                 조회 건수: {rows.length}
                 {typeof total === 'number' ? ` / 전체: ${total}` : ''}

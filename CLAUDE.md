@@ -166,8 +166,12 @@ Defined in `backend/src/config/schema/`: `conversations`, `billing_logs`, `api_u
 
 ### Export
 
-- CSV: streaming with BOM, 5K-char truncation, concurrent semaphore (max 2)
-- JSON: full data, optional gzip (`?gzip=1`)
+Frontend builds export files client-side from already-fetched query results (no separate export API call):
+
+- CSV: BOM, 5K-char cell truncation (`buildCsvContent` in `utils.ts`)
+- JSON: full data, column-projected (`projectRowsByColumns`)
+
+Backend still exposes streaming export endpoints (`exportStreaming.ts`) — not currently used by the UI.
 
 ## Key Patterns
 

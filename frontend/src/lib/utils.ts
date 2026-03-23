@@ -84,10 +84,12 @@ export function escapeCsvCell(value: string): string {
   return needsQuote ? `"${escaped}"` : escaped
 }
 
+const CSV_MAX_CELL_LENGTH = 5000
+
 export function buildCsvContent(rows: Array<Record<string, unknown>>, columns: string[]): string {
   const header = columns.map((column) => escapeCsvCell(column)).join(',')
   const body = rows
-    .map((row) => columns.map((column) => escapeCsvCell(toExportString(row[column]))).join(','))
+    .map((row) => columns.map((column) => escapeCsvCell(toExportString(row[column]).slice(0, CSV_MAX_CELL_LENGTH))).join(','))
     .join('\n')
 
   return body ? `${header}\n${body}` : header
@@ -105,6 +107,31 @@ export function projectRowsByColumns(rows: Array<Record<string, unknown>>, colum
   })
 }
 
+export function buildExportFileName(dataType: string, format: 'csv' | 'json'): string {
+  return `${dataType}-${toExportTimestamp(new Date())}.${format}`
+}
+
+export function downloadRowsAsCsv(
+  dataType: string,
+  rows: Array<Record<string, unknown>>,
+  columns: string[],
+): void {
+  const content = buildCsvContent(rows, columns)
+  const fileName = buildExportFileName(dataType, 'csv')
+  triggerFileDownload(content, fileName, 'text/csv; charset=utf-8', true)
+}
+
+export function downloadRowsAsJson(
+  dataType: string,
+  rows: Array<Record<string, unknown>>,
+  columns: string[],
+): void {
+  const projectedRows = projectRowsByColumns(rows, columns)
+  const content = JSON.stringify(projectedRows)
+  const fileName = buildExportFileName(dataType, 'json')
+  triggerFileDownload(content, fileName, 'application/json; charset=utf-8')
+}
+
 export function triggerFileDownload(content: string, fileName: string, mimeType: string, withBom = false): void {
   const blob = new Blob(withBom ? ['\uFEFF', content] : [content], { type: mimeType })
   const url = window.URL.createObjectURL(blob)
@@ -118,14 +145,4 @@ export function triggerFileDownload(content: string, fileName: string, mimeType:
   window.URL.revokeObjectURL(url)
 }
 
-export function triggerBlobDownload(blob: Blob, fileName: string): void {
-  const url = window.URL.createObjectURL(blob)
-  const link = window.document.createElement('a')
 
-  link.href = url
-  link.download = fileName
-  window.document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
-}
