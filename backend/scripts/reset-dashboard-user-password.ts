@@ -1,5 +1,6 @@
 import { env } from "../src/config/env";
 import { closeMongoConnection } from "../src/config/database";
+import { ensureDnsServers } from "../src/config/dns";
 import { resetUserPasswordByEmail } from "../src/services/userService";
 
 interface CliArgs {
@@ -56,6 +57,8 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 async function run(): Promise<void> {
+  ensureDnsServers();
+
   if (!env.MONGODB_URI) {
     throw new Error("MONGODB_URI is required");
   }
