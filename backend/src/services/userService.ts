@@ -1,4 +1,4 @@
-import { Collection, ObjectId } from "mongodb";
+import { Collection, MongoServerError, ObjectId } from "mongodb";
 import { env } from "../config/env";
 import { getOpsToolDb } from "../config/database";
 import type { DashboardUser, SafeDashboardUser, UserRole } from "../types/auth";
@@ -18,6 +18,7 @@ interface DashboardUserDocument {
 
 const USERS_COLLECTION = "dashboard_users";
 let bootstrapDone = false;
+let bootstrapPromise: Promise<void> | null = null;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -27,6 +28,10 @@ function getSuperAdminEmails(): string[] {
   return env.SUPER_ADMIN_EMAILS.map((email) => normalizeEmail(email)).filter(
     (email, index, source) => email.length > 0 && source.indexOf(email) === index
   );
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return error instanceof MongoServerError && error.code === 11000;
 }
 
 async function getUsersCollection(): Promise<Collection<DashboardUserDocument>> {
@@ -68,36 +73,52 @@ async function ensureBootstrapSuperAdmins(): Promise<void> {
     return;
   }
 
-  const superAdminEmails = getSuperAdminEmails();
-  if (superAdminEmails.length === 0) {
-    bootstrapDone = true;
-    return;
+  if (bootstrapPromise) {
+    return bootstrapPromise;
   }
 
-  const collection = await getUsersCollection();
-  const defaultPasswordHash = await hashPassword(env.SUPER_ADMIN_INITIAL_PASSWORD);
-  const now = new Date();
-
-  for (const email of superAdminEmails) {
-    const existing = await collection.findOne({ email });
-    if (existing) {
-      continue;
+  bootstrapPromise = (async () => {
+    const superAdminEmails = getSuperAdminEmails();
+    if (superAdminEmails.length === 0) {
+      bootstrapDone = true;
+      return;
     }
 
-    await collection.insertOne({
-      _id: new ObjectId(),
-      email,
-      name: email.split("@")[0] ?? "superadmin",
-      role: "super_admin",
-      passwordHash: defaultPasswordHash,
-      mustChangePassword: true,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+    const collection = await getUsersCollection();
+    const defaultPasswordHash = await hashPassword(env.SUPER_ADMIN_INITIAL_PASSWORD);
+    const now = new Date();
 
-  bootstrapDone = true;
+    for (const email of superAdminEmails) {
+      const existing = await collection.findOne({ email });
+      if (existing) {
+        continue;
+      }
+
+      try {
+        await collection.insertOne({
+          _id: new ObjectId(),
+          email,
+          name: email.split("@")[0] ?? "superadmin",
+          role: "super_admin",
+          passwordHash: defaultPasswordHash,
+          mustChangePassword: true,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    bootstrapDone = true;
+  })().finally(() => {
+    bootstrapPromise = null;
+  });
+
+  return bootstrapPromise;
 }
 
 export async function prepareUserStore(): Promise<void> {
@@ -215,6 +236,46 @@ export async function updateUser(
   const updated = await collection.findOne({ _id: objectId });
   if (!updated) {
     throw new Error("User not found after update");
+  }
+
+  return toSafeUser(toModel(updated));
+}
+
+export async function resetUserPasswordByEmail(input: {
+  email: string;
+  password: string;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
+}): Promise<SafeDashboardUser> {
+  await ensureBootstrapSuperAdmins();
+
+  const collection = await getUsersCollection();
+  const email = normalizeEmail(input.email);
+  const existing = await collection.findOne({ email });
+
+  if (!existing) {
+    throw new Error("User not found");
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  const updateDoc: Partial<DashboardUserDocument> = {
+    passwordHash,
+    updatedAt: new Date(),
+  };
+
+  if (typeof input.isActive === "boolean") {
+    updateDoc.isActive = input.isActive;
+  }
+
+  if (typeof input.mustChangePassword === "boolean") {
+    updateDoc.mustChangePassword = input.mustChangePassword;
+  }
+
+  await collection.updateOne({ _id: existing._id }, { $set: updateDoc });
+
+  const updated = await collection.findOne({ _id: existing._id });
+  if (!updated) {
+    throw new Error("User not found after password reset");
   }
 
   return toSafeUser(toModel(updated));
