@@ -40,40 +40,7 @@
 
 ---
 
-## 3. 코딩 규칙 및 패턴
-
-### 3.1 TypeScript 규칙
-- **strict 모드** 필수 (`tsconfig.json`)
-- 모든 함수 매개변수와 반환값에 명시적 타입 사용
-- `any` 사용 금지 — `unknown`으로 대체 후 타입 가드
-- 공유 타입은 `shared/types/`에 정의, 프론트/백 모두 참조
-
-### 3.2 백엔드 패턴
-- **라우트 → 서비스 → DB** 3계층 분리
-  - routes: HTTP 요청/응답 처리만
-  - services: 비즈니스 로직
-  - config/database: DB 접근
-- **미들웨어 체인**: `authenticate → authorize → checkDataTypeAccess → handler`
-- **에러 핸들링**: 커스텀 AppError 클래스, 전역 errorHandler 미들웨어
-- **환경변수**: `config/env.ts`에서 Zod로 검증 후 typed export
-
-### 3.3 프론트엔드 패턴
-- **컴포넌트**: `components/` — 재사용 가능한 UI
-- **페이지**: `pages/` — 라우트 대응, 컴포넌트 조합
-- **훅**: `hooks/` — API 연동, 상태 관리
-- **API 클라이언트**: `lib/api.ts` — base URL, JWT 자동 첨부, 에러 인터셉터
-- 조회/관리 페이지는 페이지 단위 상태와 API 함수 호출로 구성
-
-### 3.4 네이밍 컨벤션
-- 파일명: camelCase (`queryBuilder.ts`, `useDataQuery.ts`)
-- 컴포넌트 파일: PascalCase (`FilterPanel.tsx`, `DataTable.tsx`)
-- 타입/인터페이스: PascalCase (`QueryRequest`, `UserRole`)
-- 상수: UPPER_SNAKE_CASE (`MAX_EXPORT_ROWS`, `CSV_TRUNCATE_LENGTH`)
-- DB 컬렉션: snake_case (`api_usage_logs`, `error_logs`)
-
----
-
-## 4. API 엔드포인트 요약
+## 3. API 엔드포인트 요약
 
 | Method | Path | 설명 | 인증 | 권한 |
 |--------|------|------|------|------|
@@ -247,25 +214,7 @@
 
 ---
 
-## 10. 환경변수 목록
-
-| 변수명 | 설명 | 기본값 | 필수 |
-|--------|------|--------|------|
-| `PORT` | 서버 포트 | 8080 | O |
-| `MONGODB_URI` | MongoDB Atlas 연결 문자열 | - | O |
-| `MONGODB_DB_NAME` | 대상 데이터베이스명 | logdb | O |
-| `OPS_TOOL_DB_NAME` | 운영 도구 DB (User/Preset/AuditLog) | ops_tool | O |
-| `JWT_SECRET` | JWT 서명 키 | - | O |
-| `JWT_EXPIRES_IN` | JWT 만료 시간 | 8h | X |
-| `CORS_ORIGIN` | 허용 Origin | * | O (prod) |
-| `MAX_EXPORT_ROWS` | Export 최대 행수 | 10000 | X |
-| `CSV_TRUNCATE_LENGTH` | CSV 문자열 Truncate 길이 | 5000 | X |
-| `MAX_CONCURRENT_EXPORTS` | 동시 Export 제한 | 2 | X |
-| `QUERY_TIMEOUT_MS` | 쿼리 타임아웃 (ms) | 30000 | X |
-
----
-
-## 11. 참조
+## 10. 참조
 
 - `PRD_v1_2_1_CloudRun.md` — 전체 요구사항
 - `DEVELOPMENT_PLAN.md` — 단계별 개발 계획

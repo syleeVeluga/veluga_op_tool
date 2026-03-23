@@ -19,113 +19,15 @@
 
 ---
 
-## 2) 최근 완료 (2026-02-18)
+## 2) 최근 완료 (2026-02-18, Phase 8-1)
 
-- **Phase 8-1 통합 테스트 (smoke 테스트) 완료**
-  - 백엔드 TypeScript 컴파일 검사 통과 (`tsc --noEmit` 에러 없음)
-  - 프론트엔드 TypeScript 컴파일 검사 통과 (`tsc --noEmit` 에러 없음)
-  - Smoke 테스트 9종 중 8종 통과 (1종 네트워크 의존 실패, 1종 스킵)
-    - ✅ `smoke-schema-endpoint`: GET /api/schema/:dataType (유효/무효 검증)
-    - ✅ `smoke-query-builder`: queryBuilder 파이프라인 + 가드레일
-    - ✅ `smoke-data-query-endpoint`: POST /api/data/query 유효성 검사
-    - ✅ `smoke-customer-search-endpoint`: GET /api/customers/search min-length 가드
-    - ✅ `smoke-conversation-batch-endpoint`: POST /api/data/query-batch/conversations
-    - ✅ `smoke-period-summary-endpoint`: POST /api/data/summary/period
-    - ✅ `smoke-data-type-summary-endpoint`: POST /api/data/summary/by-data-type
-    - ❌ `smoke-auth-inactive-login`: MongoDB Atlas DNS 연결 불가 (로컬 네트워크 제한, 운영 환경에서 통과 예상)
-    - ✅ `smoke-conversation-session-mapping`: 고객 보고 모드 세션 매핑
-    - ⏭️ `smoke-partner-workflow`: `SMOKE_PARTNER_ID` 미설정으로 스킵 (의도된 동작)
-  - 코드 기준 커밋: `a0ca77e`
+- TypeScript 컴파일 검사 통과 (백엔드 + 프론트엔드)
+- Smoke 테스트 10종 중 8종 통과 (1종 로컬 DNS 실패, 1종 `SMOKE_PARTNER_ID` 미설정 스킵)
+- 관리자 페이지 모달 기반 UX 재작성 (`allowedMenus`/`allowedDataTypes` 체크박스 UI)
+- 파트너 로그 페이지 MVP (`/partner-logs`), 파트너 전용 Export API 추가
+- 서비스 로그 내부 보고 확장 컬럼(`questionCreatorType`, `answerAt`, `responseLatencyMs` 등)
 
-- **Phase 7-1 관리자 페이지 구현 완료**
-  - `AdminPage.tsx` 전면 재작성 (인라인 편집 → 모달 기반 UX)
-  - 사용자 추가 모달: 이메일, 이름, 비밀번호, 역할, 계정 상태
-  - 사용자 편집 모달: 전체 필드 편집 + 선택적 비밀번호 변경
-  - 메뉴 권한(allowedMenus) 체크박스 UI: user-logs / service-logs / partner-logs / admin
-  - 데이터 유형(allowedDataTypes) 체크박스 UI: api_usage_logs / billing_logs / conversations / error_logs / event_logs
-  - 목록 테이블: 역할/상태/메뉴권한/데이터권한 배지 표시, 수정일 표시
-  - 비활성화 토글 + 하드 삭제 모두 유지
-  - `window.prompt()` 비밀번호 재설정 → 편집 모달 내 선택적 입력으로 대체
-  - 신규 UI 컴포넌트: `Modal`, `Checkbox` (`frontend/src/components/ui/`)
-  - allowedMenus/allowedDataTypes 백엔드 연동은 Phase 7-2에서 진행
-
-- 파트너 로그 메뉴/페이지 MVP 구현 완료
-  - 프론트: `/partner-logs` 페이지 신설 (`frontend/src/pages/PartnerLogPage.tsx`)
-  - 사이드바 메뉴 노출 + 권한 없는 사용자 비노출
-  - 라우트 가드: 메뉴 권한 + 데이터 권한(conversations) 동시 검사
-  - 실행 메타 표시 + 실패 청크 요약 표시
-  - CSV/JSON 다운로드 + JSON gzip 옵션 제공
-
-- 파트너 전용 Export API 추가(서버 스트리밍)
-  - `POST /api/data/query-partner/conversations/export-csv`
-  - `POST /api/data/query-partner/conversations/export-json` (`?gzip=1` 지원)
-  - 프론트 다운로드를 클라이언트 생성 방식에서 서버 export API 기반으로 전환
-
-- 파트너 저부하 가드레일 보강
-  - 월 경계 중복 조회 제거(윈도우 end 보정)
-  - 실패 청크 `attempts`를 실제 재시도 횟수로 기록
-  - 실행 메타에 `pauseMs`, `maxRetries` 포함
-
-- 비IT 사용자 사용성 점검(1차) 완료
-  - 결론: 고객 검색 + 기본 필터 + 조회/다운로드 흐름으로 실무 사용 가능
-  - 보완 반영: `billing_logs` 기본 필터/기본 컬럼 자동 적용
-  - 오해 방지: 결제 금액은 "요금제 기준 금액(plans.price)"이며 실결제/환불 미지원 문구 표기
-
-- 결제 로그 메뉴 기획 문서화(정산 관점)
-  - 실데이터 재실사 반영: `userplans/userplanhistories/plans/businessplans/usagelogs/logentrydbs(category=Billing)`
-  - 결제 로그 MVP 컬럼/필터/집계/예외 규칙 정의
-  - 정산 리스크 명시: usage 타입 혼재, 플랜 조인 미매칭, invoice/refund 구조 컬렉션 부재
-
-- 파트너 로그(기관 단위) 계획 수립/문서 반영
-  - 운영 요청 시나리오 기준: 기관 전체 대화 로그 요청 대응
-  - 2트랙 확정: 단기(DB 오프라인 추출) + 중기(API 표준 워크플로우)
-  - 메뉴 신설 확정: `/partner-logs` (권한 기반 노출)
-  - 내부 보고 확장 컬럼(누가/언제/신뢰도) 및 저부하 가드레일 원칙 반영
-- 내부 보고 확장 컬럼(1차) 구현 완료
-  - `questionCreatorType`, `questionCreatorRaw`
-  - `answerAt`, `responseLatencyMs`
-  - `modelConfidence`, `likeConfidence`
-  - 서비스 로그 기본 컬럼 순서 반영 + 스모크 테스트 검증 항목 추가
-- 파트너 Track 1 오프라인 추출 스크립트 구현 완료
-  - 실행: `npm run export:partner:conversations -- --partnerId <ID> --start <ISO> --end <ISO>`
-  - 기능: 월 단위 윈도우 분할, 고객/채널 청크, 재시도, NDJSON + summary 파일 출력
-- 파트너 Track 2 API 표준 워크플로우 구현 완료
-  - 엔드포인트: `POST /api/data/query-partner/conversations`
-  - 요청 표준: `partnerId`, `dateRange`, `chunkOptions`
-  - 응답 메타: `processedChunks`, `failedChunks`, `elapsedMs`, `executionPlan(월 단위 윈도우)`
-
-- 서비스 로그 전용 메뉴/페이지 추가 (`/service-logs`)
-- `conversations` 고객 보고 모드 요청값 반영
-  - `includeSessionMessages=true`
-  - `reportMode="customer"`
-  - `matchWindowSec=60`
-- 백엔드 세션 매핑 서비스 추가
-  - 질문/최종답변/모델/크레딧/매핑출처(`matchSource`) 구성
-  - `summary.unmatchedCount`, `summary.fallbackCount`, `summary.totalCreditUsed` 제공
-- 서비스 로그 결과 컬럼 순서 고정(고객 보고용)
-- 서비스 로그 결과 컬럼 조정
-  - `matchScore` 제외
-  - `like`(좋아요/나빠요) 표시 반영 (DB 기존 값 읽기)
-- 정렬 토글 UI 반영 (사용자 로그/서비스 로그 공통)
-  - 오름차순 / 최신순
-  - 로컬 저장소(`query settings`)에 정렬 상태 저장/복원
-- 필터 패널 채널 조회/선택 개선
-  - 채널 선택 라벨: `channel_id (channel_name)` 표시
-  - 채널 메타 조회 API: `GET /api/customers/channels?dataType=&customerId=`
-- Export 스트리밍 API 추가
-  - `POST /api/data/export-csv`
-  - `POST /api/data/export-json`
-  - 프로덕션 DB Read-Only 원칙 유지 (쓰기/스키마 변경 없음)
-- 백엔드 전역 에러 핸들링 추가
-  - `backend/src/middleware/errorHandler.ts`
-  - 구조화된 에러 응답 포맷 적용: `{ error: { code, message, details? } }`
-  - `notFoundHandler` + `errorHandler` 전역 등록
-- 프론트 공통 UI 컴포넌트 분리
-  - `frontend/src/components/ui/` (`Button`, `Input`, `Skeleton`, `Table`)
-  - `LogDashboard`에 공통 컴포넌트 적용 (테이블/버튼/입력 필드)
-- 쿼리 가드레일 운영 적용 확인
-  - 쿼리 타임아웃: `QUERY_TIMEOUT_MS` (기본 30초)
-  - 조회 readPreference: `secondaryPreferred`
+커밋: `a0ca77e`
 
 ---
 
@@ -184,8 +86,3 @@
 
 ---
 
-## 7) 참고
-
-- 최신 코드 기준 빌드 검증: `backend npm run build`, `frontend npm run build` 통과 (2026-02-18)
-- 최신 변경 핵심(7-1): 관리자 페이지 모달 기반 UX 재작성 + allowedMenus/allowedDataTypes 체크박스 UI + Modal/Checkbox 컴포넌트 추가
-- Phase 8-1 smoke 테스트 결과: 10종 중 8종 통과, 1종 로컬 네트워크 제한 실패(운영 환경 예상 통과), 1종 스킵 (2026-02-18, `a0ca77e`)
