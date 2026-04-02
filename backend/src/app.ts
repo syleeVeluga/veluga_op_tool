@@ -7,8 +7,10 @@ import {
 import { ensureDnsServers } from "./config/dns";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { requireAnyRole, requireAuth } from "./middleware/authz";
 import { adminUsersRouter } from "./routes/adminUsers";
 import { authRouter } from "./routes/auth";
+import { billingRouter } from "./routes/billing";
 import { dataRouter } from "./routes/data";
 
 export function createApp() {
@@ -49,6 +51,7 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/admin", adminUsersRouter);
+  app.use("/api/billing", requireAuth, requireAnyRole(["super_admin", "admin"]), billingRouter);
   app.use("/api", dataRouter);
 
   app.use(notFoundHandler);

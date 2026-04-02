@@ -322,3 +322,60 @@ export function updateAdminUser(
 export function deleteAdminUser(token: string, userId: string): Promise<{ ok: boolean }> {
   return requestJson<{ ok: boolean }>(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }, token)
 }
+
+// --- Billing / Settlement ---
+
+export type BillingPlatform = 'openai' | 'anthropic'
+
+export interface BillingUsageRow {
+  platform: BillingPlatform
+  date: string
+  model: string
+  project?: string
+  apiKeyId?: string
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  costUsd: number
+}
+
+export interface BillingProject {
+  id: string
+  name: string
+}
+
+export interface BillingQueryPayload {
+  platform: BillingPlatform
+  startDate: string
+  endDate: string
+  bucketWidth: '1h' | '1d' | '1M'
+  groupBy?: string[]
+  projectIds?: string[]
+}
+
+export interface BillingQueryResponse {
+  rows: BillingUsageRow[]
+  platform: BillingPlatform
+  queriedAt: string
+}
+
+export function fetchBillingProjects(
+  token: string,
+  platform: BillingPlatform,
+): Promise<{ projects: BillingProject[] }> {
+  return requestJson<{ projects: BillingProject[] }>(
+    `/billing/projects?platform=${encodeURIComponent(platform)}`,
+    undefined,
+    token,
+  )
+}
+
+export function fetchBillingUsage(
+  token: string,
+  payload: BillingQueryPayload,
+): Promise<BillingQueryResponse> {
+  return requestJson<BillingQueryResponse>('/billing/usage', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, token)
+}

@@ -35,6 +35,7 @@ npm run lint    # ESLint flat config v9
 - Export is **client-side only** — frontend builds CSV/JSON from fetched query results; backend streaming endpoints (`exportStreaming.ts`) exist but the UI does not use them
 - Query guards: mandatory `customerId` + `dateRange`, 100-row query limit, 10K-row export limit, 30s timeout
 - Auth: JWT HS256 (8h), roles `super_admin` > `admin` > `user`, per-user `allowedMenus` + `allowedDataTypes`
+- Billing feature queries OpenAI/Anthropic Admin APIs for usage & cost data — no MongoDB involved; requires `OPENAI_ADMIN_API_KEY` and/or `ANTHROPIC_ADMIN_API_KEY` env vars; monthly aggregation is done server-side from daily buckets
 - Backend starts in degraded mode (no MongoDB) for frontend-only dev
 
 ## Key Patterns
@@ -50,7 +51,7 @@ npm run lint    # ESLint flat config v9
 
 ## Environment Variables
 
-Backend (`backend/.env.example`): `PORT`, `MONGODB_URI`, `MONGODB_DB_NAME`, `OPS_TOOL_DB_NAME`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `SUPER_ADMIN_EMAILS`, `MAX_EXPORT_ROWS`, `CSV_TRUNCATE_LENGTH`, `QUERY_TIMEOUT_MS`
+Backend (`backend/.env.example`): `PORT`, `MONGODB_URI`, `MONGODB_DB_NAME`, `OPS_TOOL_DB_NAME`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `SUPER_ADMIN_EMAILS`, `MAX_EXPORT_ROWS`, `CSV_TRUNCATE_LENGTH`, `QUERY_TIMEOUT_MS`, `OPENAI_ADMIN_API_KEY`, `ANTHROPIC_ADMIN_API_KEY`
 
 Frontend: `VITE_API_BASE_URL` (backend URL), `VITE_BASE_PATH` (GitHub Pages base)
 

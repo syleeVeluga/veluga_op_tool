@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, MessageSquareText, Database, UserCog, LogOut } from 'lucide-react'
+import { LayoutDashboard, MessageSquareText, Database, Receipt, UserCog, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Sidebar() {
@@ -12,6 +12,8 @@ export function Sidebar() {
   const hasPartnerDataAccess =
     authUser?.allowedDataTypes?.includes('conversations') ?? isAdmin
   const canAccessPartnerLogs = hasPartnerMenuAccess && hasPartnerDataAccess
+  const canAccessBilling =
+    authUser?.allowedMenus?.includes('billing') || isAdmin
 
   return (
     <div className="flex h-screen w-64 flex-col border-r bg-slate-900 text-white flex-shrink-0">
@@ -58,6 +60,25 @@ export function Sidebar() {
             <Database size={18} />
             대량 배치 로그
           </NavLink>
+        )}
+
+        {canAccessBilling && (
+          <>
+            <div className="mt-6 mb-2 px-2 text-xs font-semibold text-slate-400 uppercase">
+              정산
+            </div>
+            <NavLink
+              to="/billing"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <Receipt size={18} />
+              AI 비용 정산
+            </NavLink>
+          </>
         )}
 
         {isAdmin && (

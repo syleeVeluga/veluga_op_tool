@@ -122,6 +122,8 @@ const envSchema = z.object({
   CSV_TRUNCATE_LENGTH: z.coerce.number().int().positive().default(5000),
   MAX_CONCURRENT_EXPORTS: z.coerce.number().int().positive().default(2),
   QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  OPENAI_ADMIN_API_KEY: z.string().optional(),
+  ANTHROPIC_ADMIN_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

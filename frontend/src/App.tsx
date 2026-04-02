@@ -4,6 +4,7 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { UserLogPage } from './pages/UserLogPage'
 import { ServiceLogPage } from './pages/ServiceLogPage'
 import { BatchLogPage } from './pages/PartnerLogPage'
+import { BillingPage } from './pages/BillingPage'
 import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
 
@@ -21,6 +22,8 @@ function AppRoutes() {
       isAdmin
     const hasPartnerDataAccess = authUser?.allowedDataTypes?.includes('conversations') ?? isAdmin
     const canAccessPartnerLogs = hasPartnerMenuAccess && hasPartnerDataAccess
+    const canAccessBilling =
+      authUser?.allowedMenus?.includes('billing') || isAdmin
     
     // If not authenticated, show Login
     if (!authToken || !authUser) {
@@ -37,6 +40,10 @@ function AppRoutes() {
                   element={canAccessPartnerLogs ? <BatchLogPage /> : <AccessDeniedPage />}
                 />
                 <Route path="/partner-logs" element={<Navigate to="/batch-logs" replace />} />
+                <Route
+                  path="/billing"
+                  element={canAccessBilling ? <BillingPage /> : <AccessDeniedPage />}
+                />
                 <Route path="/admin/users" element={<AdminPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
