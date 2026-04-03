@@ -1,5 +1,9 @@
 import type { BillingUsageRow } from "../types/billing";
 
+function normalizeMergeLabel(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
 /**
  * Generic cursor-based pagination fetcher for billing APIs.
  * Both OpenAI and Anthropic use { has_more, next_page } pagination.
@@ -32,9 +36,11 @@ export async function fetchAllPages<T extends { has_more: boolean; next_page: st
 }
 
 /**
- * Merges cost and token-usage rows:
- * 1. Token rows that match cost data get proportional costUsd assigned
- * 2. Cost rows with NO matching token data are preserved as-is (images, web search, etc.)
+ * Merges cost and token-usage rows in two phases:
+ * 1. Exact match: Cost rows that match token rows by date+project+model get proportional costUsd assigned
+ * 2. Fallback: Remaining cost rows (e.g. OpenAI line_items that don't have exact model IDs) are distributed
+ *    proportionally to ALL token rows in the same date+project bucket
+ * 3. Unmatched: Cost rows with no token data at all are preserved as-is
  */
 export function mergeCostAndTokenRows(
   costRows: BillingUsageRow[],
@@ -43,37 +49,68 @@ export function mergeCostAndTokenRows(
   if (costRows.length === 0) return tokenRows;
   if (tokenRows.length === 0) return costRows;
 
-  // Build token totals per date+project
+  // Build token totals per date+project+model for Phase 1 (exact match).
   const tokenTotals = new Map<string, number>();
+  const tokenRowsByKey = new Map<string, BillingUsageRow[]>();
   for (const tr of tokenRows) {
-    const key = `${tr.date}|${tr.project ?? ""}`;
+    const key = `${tr.date}|${tr.project ?? ""}|${normalizeMergeLabel(tr.model)}`;
     tokenTotals.set(key, (tokenTotals.get(key) ?? 0) + tr.totalTokens);
-  }
-
-  // Build cost totals per date+project and track which keys have token matches
-  const costByKey = new Map<string, number>();
-  for (const cr of costRows) {
-    const key = `${cr.date}|${cr.project ?? ""}`;
-    costByKey.set(key, (costByKey.get(key) ?? 0) + cr.costUsd);
-  }
-
-  // Distribute costs proportionally to token rows where matches exist
-  const matchedKeys = new Set<string>();
-  for (const tr of tokenRows) {
-    const key = `${tr.date}|${tr.project ?? ""}`;
-    const totalCost = costByKey.get(key);
-    const total = tokenTotals.get(key);
-    if (totalCost && total && total > 0) {
-      tr.costUsd = (totalCost * tr.totalTokens) / total;
-      matchedKeys.add(key);
+    const existing = tokenRowsByKey.get(key);
+    if (existing) {
+      existing.push(tr);
+    } else {
+      tokenRowsByKey.set(key, [tr]);
     }
   }
 
-  // Collect cost rows that had NO matching token rows (images, web search, audio, etc.)
-  const unmatchedCostRows = costRows.filter((cr) => {
-    const key = `${cr.date}|${cr.project ?? ""}`;
-    return !matchedKeys.has(key);
-  });
+  // Also build token totals per date+project for Phase 2 (fallback).
+  const tokenTotalsByDateProject = new Map<string, number>();
+  const tokenRowsByDateProject = new Map<string, BillingUsageRow[]>();
+  for (const tr of tokenRows) {
+    const key = `${tr.date}|${tr.project ?? ""}`;
+    tokenTotalsByDateProject.set(key, (tokenTotalsByDateProject.get(key) ?? 0) + tr.totalTokens);
+    const existing = tokenRowsByDateProject.get(key);
+    if (existing) {
+      existing.push(tr);
+    } else {
+      tokenRowsByDateProject.set(key, [tr]);
+    }
+  }
 
-  return [...tokenRows, ...unmatchedCostRows];
+  const unmatchedCostRows: BillingUsageRow[] = [];
+
+  // Phase 1: Exact match by date+project+model
+  for (const cr of costRows) {
+    const key = `${cr.date}|${cr.project ?? ""}|${normalizeMergeLabel(cr.model)}`;
+    const matchingTokenRows = tokenRowsByKey.get(key);
+    const totalTokens = tokenTotals.get(key) ?? 0;
+
+    if (!matchingTokenRows?.length || totalTokens <= 0) {
+      unmatchedCostRows.push(cr);
+      continue;
+    }
+
+    for (const tr of matchingTokenRows) {
+      tr.costUsd += (cr.costUsd * tr.totalTokens) / totalTokens;
+    }
+  }
+
+  // Phase 2: Fallback — distribute unmatched cost rows to all tokens in the same date+project
+  const stillUnmatchedCostRows: BillingUsageRow[] = [];
+  for (const cr of unmatchedCostRows) {
+    const key = `${cr.date}|${cr.project ?? ""}`;
+    const matchingTokenRows = tokenRowsByDateProject.get(key);
+    const totalTokens = tokenTotalsByDateProject.get(key) ?? 0;
+
+    if (!matchingTokenRows?.length || totalTokens <= 0) {
+      stillUnmatchedCostRows.push(cr);
+      continue;
+    }
+
+    for (const tr of matchingTokenRows) {
+      tr.costUsd += (cr.costUsd * tr.totalTokens) / totalTokens;
+    }
+  }
+
+  return [...tokenRows, ...stillUnmatchedCostRows];
 }

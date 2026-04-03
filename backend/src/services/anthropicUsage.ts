@@ -1,6 +1,6 @@
 import { env } from "../config/env";
 import type { BillingProject, BillingQueryParams, BillingUsageRow } from "../types/billing";
-import { fetchAllPages } from "./billingUtils";
+import { fetchAllPages, mergeCostAndTokenRows } from "./billingUtils";
 
 const ANTHROPIC_BASE = "https://api.anthropic.com/v1/organizations";
 
@@ -119,7 +119,7 @@ async function fetchCosts(params: BillingQueryParams): Promise<BillingUsageRow[]
       limit: "31",
     });
     qs.append("group_by[]", "workspace_id");
-    qs.append("group_by[]", "description");
+    qs.append("group_by[]", "model");
     if (page) qs.set("page", page);
     return `${ANTHROPIC_BASE}/cost_report?${qs}`;
   };
@@ -136,7 +136,7 @@ async function fetchCosts(params: BillingQueryParams): Promise<BillingUsageRow[]
         rows.push({
           platform: "anthropic",
           date,
-          model: r.description ?? r.model ?? r.cost_type ?? "unknown",
+          model: r.model ?? r.cost_type ?? "unknown",
           project: r.workspace_id ?? undefined,
           inputTokens: 0,
           outputTokens: 0,
@@ -159,13 +159,7 @@ async function fetchCosts(params: BillingQueryParams): Promise<BillingUsageRow[]
 async function fetchTokenUsage(params: BillingQueryParams): Promise<BillingUsageRow[]> {
   const headers = buildHeaders();
 
-  // Always include workspace_id to match cost endpoint grouping for merge
-  const userGroupBy = params.groupBy?.length ? params.groupBy : ["model"];
-  const groupBy = userGroupBy.includes("workspace_id")
-    ? userGroupBy
-    : [...userGroupBy, "workspace_id"];
-
-  const buildUrl = (page?: string) => {
+  const buildUrl = (groupBy: string[], page?: string) => {
     const qs = new URLSearchParams({
       starting_at: new Date(params.startDate).toISOString(),
       ending_at: new Date(params.endDate).toISOString(),
@@ -180,7 +174,32 @@ async function fetchTokenUsage(params: BillingQueryParams): Promise<BillingUsage
     return `${ANTHROPIC_BASE}/usage_report/messages?${qs}`;
   };
 
-  const pages = await fetchAllPages<AnthropicUsageResponse>(buildUrl, headers, "Anthropic");
+  const fetchTokenPages = async (groupBy: string[]): Promise<AnthropicUsageResponse[]> => {
+    return fetchAllPages<AnthropicUsageResponse>((page) => buildUrl(groupBy, page), headers, "Anthropic");
+  };
+
+  const userGroupBy = params.groupBy?.length ? params.groupBy : ["model"];
+  const primaryGroupBy = userGroupBy.includes("workspace_id")
+    ? userGroupBy
+    : [...userGroupBy, "workspace_id"];
+  const fallbackGroupBy = ["model", "workspace_id"];
+
+  let pages: AnthropicUsageResponse[];
+  try {
+    pages = await fetchTokenPages(primaryGroupBy);
+  } catch (error) {
+    const shouldRetry = primaryGroupBy.join("|") !== fallbackGroupBy.join("|");
+    if (!shouldRetry) {
+      throw error;
+    }
+
+    console.warn(
+      "[billing] Anthropic token usage fetch failed for detailed groupBy, retrying with model+workspace:",
+      (error as Error).message,
+    );
+    pages = await fetchTokenPages(fallbackGroupBy);
+  }
+
   const rows: BillingUsageRow[] = [];
 
   for (const page of pages) {
@@ -216,16 +235,18 @@ export async function fetchAnthropicUsage(
 ): Promise<BillingUsageRow[]> {
   const canFetchCosts = params.bucketWidth === "1d";
 
-  // Cost report has full breakdown (tokens, web search, cache, etc.)
-  // Use cost rows as primary when available; token rows as fallback for hourly
-  if (canFetchCosts) {
-    try {
-      return await fetchCosts(params);
-    } catch (err) {
-      console.warn("[billing] Anthropic cost fetch failed, falling back to token usage:", (err as Error).message);
-    }
-  }
+  const [costRows, tokenRows] = await Promise.all([
+    canFetchCosts
+      ? fetchCosts(params).catch((err) => {
+          console.warn("[billing] Anthropic cost fetch failed, falling back to token usage:", (err as Error).message);
+          return [] as BillingUsageRow[];
+        })
+      : Promise.resolve([] as BillingUsageRow[]),
+    fetchTokenUsage(params).catch((err) => {
+      console.warn("[billing] Anthropic token usage fetch failed:", (err as Error).message);
+      return [] as BillingUsageRow[];
+    }),
+  ]);
 
-  // Hourly mode or cost fetch failed: use token usage (no dollar amounts)
-  return fetchTokenUsage(params);
+  return mergeCostAndTokenRows(costRows, tokenRows);
 }
