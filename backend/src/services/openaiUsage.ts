@@ -199,7 +199,7 @@ async function fetchTokenUsage(params: BillingQueryParams): Promise<BillingUsage
         rows.push({
           platform: "openai",
           date,
-          model: r.model ?? "unknown",
+          model: r.model ?? (groupBy.includes("model") ? "unknown" : "(전체)"),
           project: r.project_id ?? undefined,
           apiKeyId: r.api_key_id ?? undefined,
           inputTokens: input,
@@ -219,7 +219,7 @@ export async function fetchOpenAIUsage(
 ): Promise<BillingUsageRow[]> {
   const canFetchCosts = params.bucketWidth === "1d";
 
-  const [costRows, tokenRows] = await Promise.all([
+  const [allCostRows, tokenRows] = await Promise.all([
     canFetchCosts
       ? fetchCosts(params).catch((err) => {
           console.warn("[billing] OpenAI cost fetch failed:", err.message);
@@ -232,5 +232,16 @@ export async function fetchOpenAIUsage(
     }),
   ]);
 
-  return mergeCostAndTokenRows(costRows, tokenRows);
+  // Separate non-completion costs (web search, images, embeddings, etc.)
+  // so they aren't absorbed into the proportional token-cost distribution.
+  const NON_COMPLETION = ["web search", "dall-e", "embedding", "gpt-image", "whisper", "tts"];
+  const isNonCompletionCost = (r: BillingUsageRow) => {
+    const m = r.model.toLowerCase();
+    return NON_COMPLETION.some((p) => m.includes(p));
+  };
+  const nonCompletionCosts = allCostRows.filter(isNonCompletionCost);
+  const completionCosts = allCostRows.filter((r) => !isNonCompletionCost(r));
+
+  const merged = mergeCostAndTokenRows(completionCosts, tokenRows);
+  return [...merged, ...nonCompletionCosts];
 }

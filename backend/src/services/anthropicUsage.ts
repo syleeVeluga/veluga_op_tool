@@ -1,6 +1,6 @@
 import { env } from "../config/env";
 import type { BillingProject, BillingQueryParams, BillingUsageRow } from "../types/billing";
-import { fetchAllPages } from "./billingUtils";
+import { fetchAllPages, mergeCostAndTokenRows } from "./billingUtils";
 
 const ANTHROPIC_BASE = "https://api.anthropic.com/v1/organizations";
 
@@ -196,7 +196,7 @@ async function fetchTokenUsage(params: BillingQueryParams): Promise<BillingUsage
         rows.push({
           platform: "anthropic",
           date,
-          model: r.model ?? "unknown",
+          model: r.model ?? (groupBy.includes("model") ? "unknown" : "(전체)"),
           project: r.workspace_id ?? undefined,
           apiKeyId: r.api_key_id ?? undefined,
           inputTokens: input,
@@ -216,16 +216,34 @@ export async function fetchAnthropicUsage(
 ): Promise<BillingUsageRow[]> {
   const canFetchCosts = params.bucketWidth === "1d";
 
-  // Cost report has full breakdown (tokens, web search, cache, etc.)
-  // Use cost rows as primary when available; token rows as fallback for hourly
-  if (canFetchCosts) {
-    try {
-      return await fetchCosts(params);
-    } catch (err) {
-      console.warn("[billing] Anthropic cost fetch failed, falling back to token usage:", (err as Error).message);
-    }
-  }
+  // Fetch both cost and token data in parallel (like OpenAI), then merge.
+  // cost_report only supports 1d buckets; token usage supports 1h/1d.
+  const tokenParams = canFetchCosts
+    ? { ...params, bucketWidth: "1d" as const }
+    : params;
 
-  // Hourly mode or cost fetch failed: use token usage (no dollar amounts)
-  return fetchTokenUsage(params);
+  const [allCostRows, tokenRows] = await Promise.all([
+    canFetchCosts
+      ? fetchCosts(params).catch((err) => {
+          console.warn("[billing] Anthropic cost fetch failed:", (err as Error).message);
+          return [] as BillingUsageRow[];
+        })
+      : Promise.resolve([] as BillingUsageRow[]),
+    fetchTokenUsage(tokenParams).catch((err) => {
+      console.warn("[billing] Anthropic token usage fetch failed:", (err as Error).message);
+      return [] as BillingUsageRow[];
+    }),
+  ]);
+
+  // Separate non-token costs (web search, code execution) so they aren't
+  // absorbed into the proportional token-cost distribution.
+  const isNonTokenCost = (r: BillingUsageRow) => {
+    const m = r.model.toLowerCase();
+    return m.includes("web search") || m.includes("code execution");
+  };
+  const nonTokenCosts = allCostRows.filter(isNonTokenCost);
+  const tokenCosts = allCostRows.filter((r) => !isNonTokenCost(r));
+
+  const merged = mergeCostAndTokenRows(tokenCosts, tokenRows);
+  return [...merged, ...nonTokenCosts];
 }

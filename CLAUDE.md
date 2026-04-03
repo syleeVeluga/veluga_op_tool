@@ -36,6 +36,9 @@ npm run lint    # ESLint flat config v9
 - Query guards: mandatory `customerId` + `dateRange`, 100-row query limit, 10K-row export limit, 30s timeout
 - Auth: JWT HS256 (8h), roles `super_admin` > `admin` > `user`, per-user `allowedMenus` + `allowedDataTypes`
 - Billing feature queries OpenAI/Anthropic Admin APIs for usage & cost data — no MongoDB involved; requires `OPENAI_ADMIN_API_KEY` and/or `ANTHROPIC_ADMIN_API_KEY` env vars; monthly aggregation is done server-side from daily buckets
+- Billing merge strategy: both platforms fetch cost + token data in parallel, then `mergeCostAndTokenRows` distributes costs proportionally by token count per `date|project` key. Non-token costs (web search, images, embeddings, code execution) are separated before merge and preserved as standalone rows
+- Anthropic cost_report `amount` is in **cents** (despite `currency: "USD"`); divide by 100. cost_report only supports `1d` bucket; usage_report supports `1h`/`1d`
+- When `model` is not in `groupBy`, token API returns `null` for model — displayed as "(전체)" in UI
 - Backend starts in degraded mode (no MongoDB) for frontend-only dev
 
 ## Key Patterns
