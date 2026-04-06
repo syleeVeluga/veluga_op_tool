@@ -28,7 +28,7 @@ function getDbNameFromUri(uri) {
 
 function pickEnvFile() {
   const candidates = [
-    path.resolve(__dirname, "../../.env.veluga.mongo"),
+    path.resolve(__dirname, "../../.env"),
     path.resolve(__dirname, "../.env"),
     path.resolve(__dirname, "../.env.local"),
   ];
@@ -106,7 +106,7 @@ async function profileTarget(label, uri, options) {
 (async () => {
   const envPath = pickEnvFile();
   if (!envPath) {
-    console.error("No env file found. Checked: ../../.env.veluga.mongo, ../.env, ../.env.local");
+    console.error("No env file found. Checked: ../../.env, ../.env, ../.env.local");
     process.exit(1);
   }
 

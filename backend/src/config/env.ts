@@ -97,11 +97,11 @@ function parseBatchDbConfigs(raw: string | undefined): BatchDbConfig[] {
 // Load environment variables:
 // 1. DOTENV_CONFIG_PATH if explicitly set
 // 2. backend/.env (default dotenv behavior)
-// 3. project root .env.veluga.mongo (fallback)
+// 3. project root .env (fallback)
 dotenv.config();
 
 if (!process.env.MONGODB_URI) {
-  dotenv.config({ path: path.resolve(__dirname, "../../../.env.veluga.mongo") });
+  dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 }
 
 const envSchema = z.object({

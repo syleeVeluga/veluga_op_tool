@@ -32,7 +32,7 @@ function parseDotEnv(text) {
 
 function pickEnvFile() {
   const candidates = [
-    path.resolve(__dirname, "../../.env.veluga.mongo"),
+    path.resolve(__dirname, "../../.env"),
     path.resolve(__dirname, "../.env"),
     path.resolve(__dirname, "../.env.local"),
   ];
